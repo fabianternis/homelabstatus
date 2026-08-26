@@ -10,7 +10,7 @@ app:
   idle_background: "IDLE (TAB IN BACKGROUND)"
   pause: "Pause"
   resume: "Resume"
-  json_api: "JSON API ↗"
+  json_api: "JSON API"
   ip_label: "IP:"
   hover_ip: "Hover to reveal IP address"
 

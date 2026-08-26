@@ -1,10 +1,10 @@
-# 🌐 REST API Reference
+# REST API Reference
 
 The Homelab Uplink Monitor provides a **clean JSON REST API** and a real-time **Server-Sent Events (SSE)** streaming channel.
 
 ---
 
-## 📡 Public Uplink Endpoints
+## Public Uplink Endpoints
 
 ### 1. Get Current Uplink Status & Health Score
 `GET /api/v1/uplink`
@@ -71,24 +71,27 @@ curl -N http://localhost:8080/api/v1/uplink/stream
 
 Triggers a concurrent probe run across all active database checks and returns the fresh summary.
 
-**Parameters:**
-- `packets` *(optional query param, default: `2`)*
+---
+
+### 4. HTTP / HTTPS Endpoints API
+`GET /api/v1/http` (List HTTP services and latest metrics)
+`POST /api/v1/http/check` (Trigger immediate parallel HTTP check run)
 
 ---
 
-### 4. Historical Series & Sparklines
+### 5. Historical Series & Sparklines
 `GET /api/v1/uplink/history?samples=30`
 
 Returns the time-series history dataset and computed Unicode sparkline characters per target node.
 
 ---
 
-### 5. Health Check
+### 6. Health Check
 `GET /api/v1/health`
 
 ---
 
-## 🛡️ Admin Management API
+## Admin Management API
 
 ### List All Checks
 `GET /api/v1/admin/checks?with_trashed=false&type=uplink`
@@ -101,6 +104,7 @@ Returns the time-series history dataset and computed Unicode sparkline character
   "host": "192.168.1.1",
   "type": "uplink",
   "group_name": "LAN",
+  "interval": 30,
   "config": {
     "packets": 2,
     "timeout": 1,
@@ -120,3 +124,12 @@ Returns the time-series history dataset and computed Unicode sparkline character
 
 ### Permanent Deletion
 `DELETE /api/v1/admin/checks/{ulid}/force`
+
+### Bulk Action Endpoint
+`POST /api/v1/admin/checks/bulk`
+```json
+{
+  "action": "enable",
+  "check_ids": ["01M0ZS3TCFQ5XBAK01NSM2TE1Z", "01M0ZS3TCFQ5XBAK01NSM2TE20"]
+}
+```

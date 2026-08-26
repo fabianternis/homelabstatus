@@ -10,7 +10,7 @@ app:
   idle_background: "INACTIF (ONGLET EN ARRIÈRE-PLAN)"
   pause: "Pause"
   resume: "Reprendre"
-  json_api: "API JSON ↗"
+  json_api: "API JSON"
   ip_label: "IP:"
   hover_ip: "Survoler pour afficher l'adresse IP"
 

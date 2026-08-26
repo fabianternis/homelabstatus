@@ -1,10 +1,10 @@
-# 🖥️ CLI & Terminal User Interface (TUI)
+# CLI & Terminal User Interface (TUI)
 
 Homelab Uplink Monitor comes with interactive live terminal dashboards and administration commands.
 
 ---
 
-## 📺 1. Live Terminal User Interface (TUI)
+## 1. Live Terminal User Interface (TUI)
 
 Launch the real-time Curses-style terminal dashboard:
 
@@ -17,7 +17,7 @@ php bin/console uplink:tui
 - `-p, --packets=2`: ICMP packets per probe run (default: `2`)
 
 ### TUI Features:
-- 🟢 🟡 🔴 Real-time ANSI colored health status badges.
+- Real-time ANSI colored health status badges.
 - Dynamic ASCII Uplink Health Score progress bar (`[██████████████████░░░░░░░] 85/100`).
 - Unicode Latency Sparkline history (` ▂▃▄▅▆▇█`).
 - Concurrent RTT, Min/Max latency, and Jitter calculations.
@@ -25,7 +25,7 @@ php bin/console uplink:tui
 
 ---
 
-## 🔍 2. Probing & Scripting Commands
+## 2. Probing & Scripting Commands
 
 ```bash
 # Execute single probe snapshot and print formatted table
@@ -36,22 +36,26 @@ php bin/console uplink:ping --loop=5
 
 # Output pure JSON for cron jobs or automation scripts
 php bin/console uplink:ping --json
+
+# Execute parallel HTTP / HTTPS endpoint checks
+php bin/console check:http
 ```
 
 ---
 
-## ⚙️ 3. Database Check Management CLI
+## 3. Database Check Management CLI
 
 ### List All Checks
 ```bash
 php bin/console check:list
+php bin/console check:list --type=http
 php bin/console check:list --trashed   # Include soft-deleted
 php bin/console check:list --json      # Raw JSON output
 ```
 
 ### Create a New Check
 ```bash
-php bin/console check:create "Cloudflare Secondary" "1.0.0.1" --group="DNS" --provider="Cloudflare" --packets=2 --timeout=2
+php bin/console check:create "Cloudflare Secondary" "1.0.0.1" --interval=30 --group="DNS" --provider="Cloudflare" --packets=2 --timeout=2
 ```
 
 ### Enable / Disable a Check
@@ -75,7 +79,7 @@ php bin/console check:restore <ulid|slug>
 
 ---
 
-## 📜 4. Audit Trail CLI
+## 4. Audit Trail CLI
 
 ```bash
 # View recent system activity and check lifecycle events

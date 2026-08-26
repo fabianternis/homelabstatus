@@ -1,10 +1,10 @@
-# 🏗️ System Architecture & Database Design
+# System Architecture & Database Design
 
 Homelab Uplink Monitor is built with an **API-first**, database-backed architecture using **ULID** primary keys, dynamic **JSON columns**, **Soft-Deletes**, and Spatie-style **Audit Logging**.
 
 ---
 
-## 🗄️ Database Schema
+## Database Schema
 
 Embedded **SQLite 3** with **WAL (Write-Ahead Logging)** mode and foreign keys enabled.
 
@@ -15,13 +15,14 @@ erDiagram
         string id PK "ULID (26 chars)"
         string name
         string slug
-        string type "uplink, icmp_ping, http, tcp, dns"
+        string type "uplink, http, icmp_ping, tcp, dns"
         string group_name
         string description
         int is_enabled "1 or 0"
         string status "excellent, good, degraded, offline, unknown"
         json config "Host, packets, timeout, headers, port"
-        json last_metrics "Latest avg latency, loss %, jitter"
+        int interval_sec "Probe execution frequency in seconds"
+        json last_metrics "Latest avg latency, loss %, jitter, http code"
         datetime last_executed_at
         datetime last_status_change_at
         int consecutive_failures
@@ -36,7 +37,7 @@ erDiagram
         string check_id FK "References checks.id"
         string status "excellent, good, degraded, offline"
         real duration_ms
-        json result_data "Individual packet samples, jitter, loss %"
+        json result_data "Individual packet samples, jitter, loss %, http code, ssl days"
         text error_message
         datetime executed_at
     }
@@ -46,7 +47,7 @@ erDiagram
         string log_name "checks, admin, cli"
         string subject_type
         string subject_id
-        string event "created, updated, deleted, restored, status_changed"
+        string event "created, updated, deleted, restored, status_changed, bulk_*"
         string causer_type
         string causer_id
         json properties "{ old: {...}, attributes: {...} }"
@@ -57,7 +58,7 @@ erDiagram
 
 ---
 
-## 🔑 Key Architectural Highlights
+## Key Architectural Highlights
 
 ### 1. ULID Primary Keys
 Every record generated in `checks`, `check_executions`, and `audit_logs` uses **ULID** (`Symfony\Component\Uid\Ulid`):

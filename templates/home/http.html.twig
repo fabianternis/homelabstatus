@@ -63,7 +63,10 @@
     <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-base font-bold text-white">Monitored Web Services</h2>
-            <a href="/api/v1/http" target="_blank" class="text-xs font-mono text-blue-400 hover:underline">JSON Endpoint ↗</a>
+            <a href="/api/v1/http" target="_blank" class="text-xs font-mono text-blue-400 hover:underline flex items-center gap-1">
+                <span>JSON Endpoint</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </a>
         </div>
 
         <div class="overflow-x-auto">
@@ -89,8 +92,9 @@
                                 <div class="text-[10px] text-zinc-500 font-normal">{{ check.config.provider|default('Web Service') }}</div>
                             </td>
                             <td class="py-3.5 font-mono text-zinc-300">
-                                <a href="{{ check.config.url|default(check.config.host|default('#')) }}" target="_blank" class="text-blue-400 hover:underline">
-                                    {{ check.config.url|default(check.config.host|default('-')) }} ↗
+                                <a href="{{ check.config.url|default(check.config.host|default('#')) }}" target="_blank" class="text-blue-400 hover:underline inline-flex items-center gap-1">
+                                    <span>{{ check.config.url|default(check.config.host|default('-')) }}</span>
+                                    <svg class="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                 </a>
                             </td>
                             <td class="py-3.5 font-mono">
@@ -108,8 +112,9 @@
                             <td class="py-3.5 font-mono">
                                 {% set sslDays = rd.ssl_days_remaining|default(check.lastMetrics.ssl_days_remaining|default(null)) %}
                                 {% if sslDays is not null %}
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold {% if sslDays > 14 %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-amber-500/10 text-amber-400 border border-amber-500/20{% endif %}">
-                                        🔒 {{ sslDays }} days left
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold {% if sslDays > 14 %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-amber-500/10 text-amber-400 border border-amber-500/20{% endif %}">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                        {{ sslDays }} days left
                                     </span>
                                 {% else %}
                                     <span class="text-zinc-500">-</span>

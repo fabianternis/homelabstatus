@@ -8,8 +8,10 @@ use App\Database\Connection;
 use App\DTO\PingResultDto;
 use App\DTO\TargetDto;
 use App\Enum\UplinkState;
-use App\Repository\ProbeLogRepository;
-use App\Repository\TargetRepository;
+use App\Repository\AuditLogRepository;
+use App\Repository\CheckExecutionRepository;
+use App\Repository\CheckRepository;
+use App\Service\Audit\AuditLogger;
 use App\Service\Ping\PingRunnerInterface;
 use App\Service\UplinkHealthEvaluator;
 use App\Service\UplinkMonitorService;
@@ -18,15 +20,17 @@ use PHPUnit\Framework\TestCase;
 class UplinkApiTest extends TestCase
 {
     private Connection $connection;
-    private TargetRepository $targetRepo;
-    private ProbeLogRepository $probeRepo;
+    private CheckRepository $checkRepo;
+    private CheckExecutionRepository $executionRepo;
     private UplinkMonitorService $monitorService;
 
     protected function setUp(): void
     {
         $this->connection = new Connection(dirname(__DIR__, 2), ':memory:');
-        $this->targetRepo = new TargetRepository($this->connection);
-        $this->probeRepo = new ProbeLogRepository($this->connection);
+        $this->checkRepo = new CheckRepository($this->connection);
+        $this->executionRepo = new CheckExecutionRepository($this->connection);
+        $auditRepo = new AuditLogRepository($this->connection);
+        $auditLogger = new AuditLogger($auditRepo);
 
         // Mock ping runner
         $mockPingRunner = new class implements PingRunnerInterface {
@@ -60,24 +64,55 @@ class UplinkApiTest extends TestCase
         };
 
         $this->monitorService = new UplinkMonitorService(
-            $this->targetRepo,
-            $this->probeRepo,
+            $this->checkRepo,
+            $this->executionRepo,
             $mockPingRunner,
-            new UplinkHealthEvaluator()
+            new UplinkHealthEvaluator(),
+            $auditLogger
         );
     }
 
-    public function testProbeAllAndHistoryFlow(): void
+    public function testProbeAllAndDatabaseHistoryFlow(): void
     {
-        $summary = $this->monitorService->probeAll(3);
+        $summary = $this->monitorService->probeAll(2);
 
         $this->assertEquals(UplinkState::EXCELLENT, $summary->state);
         $this->assertGreaterThan(0, $summary->activeTargetsCount);
         $this->assertEquals(12.5, $summary->avgLatencyMs);
 
+        // Verify database records
+        $checks = $this->checkRepo->findByType('uplink');
+        $this->assertNotEmpty($checks);
+
+        $firstCheck = $checks[0];
+        $this->assertEquals(UplinkState::EXCELLENT, $firstCheck->status);
+        $this->assertNotNull($firstCheck->lastMetrics);
+        $this->assertNotNull($firstCheck->id);
+        $this->assertEquals(26, strlen($firstCheck->id)); // ULID length is 26 chars
+
         $history = $this->monitorService->getHistoryWithSparklines(10);
         $this->assertArrayHasKey('targets', $history);
-        $this->assertArrayHasKey('cloudflare-primary', $history['targets']);
-        $this->assertNotEmpty($history['targets']['cloudflare-primary']['sparkline']);
+        $this->assertArrayHasKey($firstCheck->id, $history['targets']);
+        $this->assertNotEmpty($history['targets'][$firstCheck->id]['history']);
+    }
+
+    public function testSoftDeleteCheck(): void
+    {
+        $checks = $this->checkRepo->findByType('uplink');
+        $check = $checks[0];
+
+        $this->checkRepo->softDelete($check->id);
+
+        $afterDelete = $this->checkRepo->findByType('uplink');
+        $this->assertCount(count($checks) - 1, $afterDelete);
+
+        $trashed = $this->checkRepo->findById($check->id, withTrashed: true);
+        $this->assertNotNull($trashed);
+        $this->assertTrue($trashed->isTrashed());
+
+        // Restore
+        $this->checkRepo->restore($check->id);
+        $restored = $this->checkRepo->findByType('uplink');
+        $this->assertCount(count($checks), $restored);
     }
 }

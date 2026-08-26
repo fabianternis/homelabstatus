@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use App\DTO\PingResultDto;
-use App\Repository\ProbeLogRepository;
-use App\Repository\TargetRepository;
+use App\Repository\AuditLogRepository;
+use App\Repository\CheckExecutionRepository;
+use App\Repository\CheckRepository;
 use App\Service\Tui\SparklineGenerator;
 use App\Service\UplinkMonitorService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,8 +21,9 @@ class UplinkController extends AbstractController
 {
     public function __construct(
         private readonly UplinkMonitorService $monitorService,
-        private readonly TargetRepository $targetRepository,
-        private readonly ProbeLogRepository $probeLogRepository
+        private readonly CheckRepository $checkRepository,
+        private readonly CheckExecutionRepository $executionRepository,
+        private readonly AuditLogRepository $auditLogRepository
     ) {}
 
     /**
@@ -57,7 +58,6 @@ class UplinkController extends AbstractController
                 ob_end_flush();
             }
 
-            // Stream up to 60 events or until connection closes
             for ($i = 0; $i < 60; $i++) {
                 if (connection_aborted()) {
                     break;
@@ -94,7 +94,7 @@ class UplinkController extends AbstractController
     #[Route('/ping', name: 'api_uplink_ping_now', methods: ['POST'])]
     public function pingNow(Request $request): JsonResponse
     {
-        $packets = max(1, min(10, (int)$request->query->get('packets', 3)));
+        $packets = max(1, min(10, (int)$request->query->get('packets', 2)));
         $summary = $this->monitorService->probeAll($packets);
 
         return $this->json([
@@ -105,20 +105,21 @@ class UplinkController extends AbstractController
     }
 
     /**
-     * List all monitored external targets
+     * List all monitored checks of type 'uplink'
      */
-    #[Route('/targets', name: 'api_uplink_targets', methods: ['GET'])]
-    public function targets(): JsonResponse
+    #[Route('/checks', name: 'api_uplink_checks', methods: ['GET'])]
+    public function checks(): JsonResponse
     {
-        $targets = $this->targetRepository->getActiveTargets();
-        $latestProbes = $this->probeLogRepository->getLatestForAllTargets();
+        $checks = $this->checkRepository->findByType('uplink', onlyEnabled: false);
+        $checkIds = array_map(fn($c) => $c->id, $checks);
+        $latestExecs = $this->executionRepository->getLatestForChecks($checkIds);
 
         $data = [];
-        foreach ($targets as $target) {
-            $latest = $latestProbes[$target->id] ?? null;
+        foreach ($checks as $check) {
+            $latest = $latestExecs[$check->id] ?? null;
             $data[] = [
-                'target' => $target->toArray(),
-                'latest_probe' => $latest?->toArray(),
+                'check' => $check->toArray(),
+                'latest_execution' => $latest?->toArray(),
             ];
         }
 
@@ -130,26 +131,26 @@ class UplinkController extends AbstractController
     }
 
     /**
-     * Get detailed history and sparkline for a specific target
+     * Get detailed history and sparkline for a specific check
      */
-    #[Route('/targets/{id}', name: 'api_uplink_target_detail', methods: ['GET'])]
-    public function targetDetail(string $id, Request $request): JsonResponse
+    #[Route('/checks/{id}', name: 'api_uplink_check_detail', methods: ['GET'])]
+    public function checkDetail(string $id, Request $request): JsonResponse
     {
-        $target = $this->targetRepository->findById($id);
-        if (!$target) {
+        $check = $this->checkRepository->findById($id) ?? $this->checkRepository->findBySlug($id);
+        if (!$check) {
             return $this->json([
                 'status' => 'error',
-                'message' => "Target '{$id}' not found",
+                'message' => "Check '{$id}' not found",
             ], Response::HTTP_NOT_FOUND);
         }
 
         $limit = max(5, min(120, (int)$request->query->get('limit', 50)));
-        $history = $this->probeLogRepository->getHistoryForTarget($target->id, $limit);
+        $history = $this->executionRepository->getHistoryForCheck($check->id, $limit);
 
         $latencies = [];
-        foreach ($history as $log) {
-            if ($log->avgLatencyMs !== null) {
-                $latencies[] = $log->avgLatencyMs;
+        foreach ($history as $exec) {
+            if (isset($exec->resultData['avg_latency_ms']) && $exec->resultData['avg_latency_ms'] !== null) {
+                $latencies[] = (float)$exec->resultData['avg_latency_ms'];
             }
         }
 
@@ -158,16 +159,16 @@ class UplinkController extends AbstractController
 
         return $this->json([
             'status' => 'ok',
-            'target' => $target->toArray(),
+            'check' => $check->toArray(),
             'latest' => $latest?->toArray(),
             'sparkline' => $sparkline,
             'samples_count' => count($history),
-            'history' => array_map(fn(PingResultDto $l) => $l->toArray(), $history),
+            'history' => array_map(fn($e) => $e->toArray(), $history),
         ]);
     }
 
     /**
-     * Get historical time-series data & sparklines for all targets
+     * Get historical time-series data & sparklines for all checks
      */
     #[Route('/history', name: 'api_uplink_history', methods: ['GET'])]
     public function history(Request $request): JsonResponse
@@ -178,6 +179,22 @@ class UplinkController extends AbstractController
         return $this->json([
             'status' => 'ok',
             'data' => $historyData,
+        ]);
+    }
+
+    /**
+     * Get recent audit / activity logs
+     */
+    #[Route('/audit-logs', name: 'api_uplink_audit_logs', methods: ['GET'])]
+    public function auditLogs(Request $request): JsonResponse
+    {
+        $limit = max(5, min(100, (int)$request->query->get('limit', 50)));
+        $logs = $this->auditLogRepository->getRecent($limit);
+
+        return $this->json([
+            'status' => 'ok',
+            'count' => count($logs),
+            'data' => array_map(fn($l) => $l->toArray(), $logs),
         ]);
     }
 }

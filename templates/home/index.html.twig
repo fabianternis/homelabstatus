@@ -107,7 +107,7 @@
                             </span>
                         </div>
                         <p class="text-sm text-zinc-400 mt-1">
-                            Probed <span id="hero-targets-count">{{ status.healthyTargetsCount }} of {{ status.activeTargetsCount }}</span> external upstream target resolvers • Evaluated <span id="hero-evaluated-time" class="font-mono text-zinc-300">{{ status.evaluatedAt|date('H:i:s T') }}</span>
+                            Probed <span id="hero-targets-count">{{ status.healthyTargetsCount }} of {{ status.activeTargetsCount }}</span> active uplink checks • Evaluated <span id="hero-evaluated-time" class="font-mono text-zinc-300">{{ status.evaluatedAt|date('H:i:s T') }}</span>
                         </p>
                     </div>
                 </div>
@@ -148,18 +148,14 @@
         <!-- Target Probes Table with Chart.js Canvas Sparklines -->
         <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-white">External Target Probes & Real-Time Latency Sparklines</h2>
-                <div class="flex items-center gap-2 text-xs font-mono text-zinc-500">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
-                    <span>Chart.js Sparklines Active</span>
-                </div>
+                <h2 class="text-base font-bold text-white">Database Uplink Checks (`type = 'uplink'`)</h2>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
                     <thead>
                         <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
-                            <th class="pb-3">Target Node</th>
-                            <th class="pb-3">Host IP</th>
+                            <th class="pb-3">Check / Resolver</th>
+                            <th class="pb-3">Target Host</th>
                             <th class="pb-3">Latency</th>
                             <th class="pb-3">Jitter</th>
                             <th class="pb-3">Loss</th>
@@ -172,8 +168,8 @@
                             {% set tInfo = history.targets[targetRes.targetId]|default(null) %}
                             <tr id="row-{{ targetRes.targetId }}" class="hover:bg-zinc-800/20 transition duration-300">
                                 <td class="py-3 font-semibold text-white">
-                                    {{ tInfo.target.name|default(targetRes.targetId) }}
-                                    <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.target.provider|default('Anycast') }}</div>
+                                    {{ tInfo.check.name|default(targetRes.targetId) }}
+                                    <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.check.config.provider|default('Anycast') }}</div>
                                 </td>
                                 <td class="py-3 font-mono text-zinc-300">{{ targetRes.host }}</td>
                                 <td class="py-3 font-mono text-white font-bold"><span id="lat-{{ targetRes.targetId }}">{{ targetRes.avgLatencyMs|round(1) }} ms</span></td>
@@ -287,7 +283,7 @@
 
             chart.data.labels = labels;
             chart.data.datasets[0].data = latencies;
-            chart.update('none'); // Update without heavy animations
+            chart.update('none');
         }
     </script>
 
@@ -396,7 +392,7 @@
             } else {
                 if (!isManuallyPaused) {
                     connectSSE();
-                    triggerImmediateProbe(); // Immediate refresh when user switches back to tab
+                    triggerImmediateProbe();
                 }
             }
         });

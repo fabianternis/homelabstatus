@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/v1/uplink')]
@@ -35,6 +36,56 @@ class UplinkController extends AbstractController
             'status' => 'ok',
             'data' => $summary->toArray(),
         ]);
+    }
+
+    /**
+     * Server-Sent Events (SSE) live streaming endpoint for real-time dashboard updates
+     */
+    #[Route('/stream', name: 'api_uplink_stream', methods: ['GET'])]
+    public function liveStream(Request $request): StreamedResponse
+    {
+        $interval = max(2, min(30, (int)$request->query->get('interval', 3)));
+        $packets = max(1, min(5, (int)$request->query->get('packets', 2)));
+
+        $response = new StreamedResponse(function () use ($interval, $packets) {
+            if (function_exists('apache_setenv')) {
+                @apache_setenv('no-gzip', '1');
+            }
+            @ini_set('zlib.output_compression', '0');
+            @ini_set('implicit_flush', '1');
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
+
+            // Stream up to 60 events or until connection closes
+            for ($i = 0; $i < 60; $i++) {
+                if (connection_aborted()) {
+                    break;
+                }
+
+                $summary = $this->monitorService->probeAll($packets);
+                $history = $this->monitorService->getHistoryWithSparklines(20);
+
+                $payload = json_encode([
+                    'summary' => $summary->toArray(),
+                    'history' => $history,
+                    'timestamp' => gmdate('c'),
+                ]);
+
+                echo "event: update\n";
+                echo "data: {$payload}\n\n";
+                flush();
+
+                sleep($interval);
+            }
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Connection', 'keep-alive');
+
+        return $response;
     }
 
     /**

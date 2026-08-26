@@ -74,6 +74,7 @@ sections:
           is_enabled: "INTEGER (1/0)"
           status: "VARCHAR(50) — 'excellent', 'good', 'degraded', 'offline', 'unknown'"
           config: "JSON — Target host/URL, packets, timeout, provider name, headers"
+          interval_sec: "INTEGER (Probe execution interval in seconds, default: 60)"
           last_metrics: "JSON — Latest avg latency ms, loss %, jitter ms, http_code"
           last_executed_at: "DATETIME"
           last_status_change_at: "DATETIME"

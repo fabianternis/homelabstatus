@@ -18,6 +18,7 @@ class Check
     public bool $isEnabled;
     public UplinkState $status;
     public array $config; // Dynamic JSON configuration
+    public int $interval; // Probe interval in seconds
     public ?array $lastMetrics; // Dynamic JSON latest execution metrics
     public ?string $lastExecutedAt;
     public ?string $lastStatusChangeAt;
@@ -37,6 +38,7 @@ class Check
         bool $isEnabled = true,
         UplinkState $status = UplinkState::UNKNOWN,
         array $config = [],
+        int $interval = 60,
         ?array $lastMetrics = null,
         ?string $lastExecutedAt = null,
         ?string $lastStatusChangeAt = null,
@@ -56,6 +58,7 @@ class Check
         $this->isEnabled = $isEnabled;
         $this->status = $status;
         $this->config = $config;
+        $this->interval = max(1, $interval);
         $this->lastMetrics = $lastMetrics;
         $this->lastExecutedAt = $lastExecutedAt;
         $this->lastStatusChangeAt = $lastStatusChangeAt;
@@ -93,6 +96,7 @@ class Check
             isEnabled: (bool)($row['is_enabled'] ?? true),
             status: UplinkState::tryFrom((string)($row['status'] ?? 'unknown')) ?? UplinkState::UNKNOWN,
             config: $config,
+            interval: (int)($row['interval_sec'] ?? ($row['interval'] ?? 60)),
             lastMetrics: $lastMetrics,
             lastExecutedAt: $row['last_executed_at'] ?? null,
             lastStatusChangeAt: $row['last_status_change_at'] ?? null,
@@ -117,6 +121,8 @@ class Check
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'config' => $this->config,
+            'interval' => $this->interval,
+            'interval_sec' => $this->interval,
             'last_metrics' => $this->lastMetrics,
             'last_executed_at' => $this->lastExecutedAt,
             'last_status_change_at' => $this->lastStatusChangeAt,

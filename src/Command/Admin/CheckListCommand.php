@@ -62,13 +62,16 @@ class CheckListCommand extends Command
                 ? '<error>TRASHED</error>'
                 : ($check->isEnabled ? '<info>ENABLED</info>' : '<comment>DISABLED</comment>');
 
-            $host = $check->config['host'] ?? '-';
-            $lat = isset($check->lastMetrics['avg_latency_ms']) ? sprintf('%.1f ms', $check->lastMetrics['avg_latency_ms']) : '-';
+            $host = $check->config['url'] ?? ($check->config['host'] ?? '-');
+            $lat = isset($check->lastMetrics['avg_latency_ms'])
+                ? sprintf('%.1f ms', $check->lastMetrics['avg_latency_ms'])
+                : (isset($check->lastMetrics['duration_ms']) ? sprintf('%.1f ms', $check->lastMetrics['duration_ms']) : '-');
 
             $rows[] = [
                 $check->id,
                 $check->name,
                 $host,
+                $check->interval . 's',
                 $stateBadge,
                 $statusFormatted,
                 $lat,
@@ -76,7 +79,7 @@ class CheckListCommand extends Command
             ];
         }
 
-        $io->table(['ULID', 'Name', 'Target Host', 'State', 'Health', 'Last Latency', 'Group'], $rows);
+        $io->table(['ULID', 'Name', 'Target Host', 'Interval', 'State', 'Health', 'Last Latency', 'Group'], $rows);
 
         return Command::SUCCESS;
     }

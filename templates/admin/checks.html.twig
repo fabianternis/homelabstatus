@@ -32,6 +32,7 @@
                         <th class="pb-3">Name / ULID</th>
                         <th class="pb-3">Target Host</th>
                         <th class="pb-3">Type & Group</th>
+                        <th class="pb-3">Interval</th>
                         <th class="pb-3">Enabled</th>
                         <th class="pb-3">Status</th>
                         <th class="pb-3">Latency</th>
@@ -46,11 +47,12 @@
                                 {{ check.name }}
                                 <div class="text-[10px] text-zinc-500 font-mono">{{ check.id }}</div>
                             </td>
-                            <td class="py-3.5 font-mono text-zinc-300">{{ check.config.host|default('-') }}</td>
+                            <td class="py-3.5 font-mono text-zinc-300">{{ check.config.url|default(check.config.host|default('-')) }}</td>
                             <td class="py-3.5 text-zinc-400 font-mono">
                                 <span class="px-2 py-0.5 bg-zinc-800 rounded">{{ check.type }}</span>
                                 <div class="text-[10px] text-zinc-500 font-sans mt-0.5">{{ check.groupName }}</div>
                             </td>
+                            <td class="py-3.5 font-mono text-emerald-400 font-semibold">{{ check.interval }}s</td>
                             <td class="py-3.5">
                                 {% if check.isTrashed() %}
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400">Trashed</span>

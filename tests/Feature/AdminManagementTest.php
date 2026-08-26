@@ -41,7 +41,8 @@ class AdminManagementTest extends TestCase
             description: 'Gateway ping test',
             isEnabled: true,
             status: UplinkState::UNKNOWN,
-            config: ['host' => '192.168.1.1', 'packets' => 2, 'timeout' => 1]
+            config: ['host' => '192.168.1.1', 'packets' => 2, 'timeout' => 1],
+            interval: 45
         );
 
         $this->checkRepo->save($check);
@@ -51,6 +52,7 @@ class AdminManagementTest extends TestCase
         $this->assertNotNull($found);
         $this->assertEquals('Local Gateway Probe', $found->name);
         $this->assertEquals('192.168.1.1', $found->config['host']);
+        $this->assertEquals(45, $found->interval);
 
         // Toggle disabled
         $found->isEnabled = false;

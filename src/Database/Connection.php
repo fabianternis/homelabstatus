@@ -68,6 +68,7 @@ class Connection
             is_enabled INTEGER NOT NULL DEFAULT 1,
             status TEXT NOT NULL DEFAULT 'unknown',
             config JSON NOT NULL, -- Type-specific JSON configuration (host, packets, timeout, headers, port, etc.)
+            interval_sec INTEGER NOT NULL DEFAULT 60, -- Check execution interval in seconds
             last_metrics JSON, -- Type-specific latest execution metrics (latency_ms, loss_percent, jitter_ms, etc.)
             last_executed_at TEXT,
             last_status_change_at TEXT,
@@ -141,5 +142,22 @@ class Connection
 SQL;
 
         $this->pdo->exec($schema);
+
+        // Migrate existing table if interval_sec column is missing
+        try {
+            $cols = $this->pdo->query("PRAGMA table_info(checks)")->fetchAll(PDO::FETCH_ASSOC);
+            $hasInterval = false;
+            foreach ($cols as $col) {
+                if ($col['name'] === 'interval_sec') {
+                    $hasInterval = true;
+                    break;
+                }
+            }
+            if (!$hasInterval) {
+                $this->pdo->exec("ALTER TABLE checks ADD COLUMN interval_sec INTEGER NOT NULL DEFAULT 60");
+            }
+        } catch (\Throwable) {
+            // Ignore if column already exists
+        }
     }
 }

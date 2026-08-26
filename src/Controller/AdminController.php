@@ -84,6 +84,7 @@ class AdminController extends AbstractController
             $country = trim((string)$request->request->get('country', 'Global'));
             $packets = max(1, min(10, (int)$request->request->get('packets', 2)));
             $timeout = max(1, min(10, (int)$request->request->get('timeout', 2)));
+            $interval = max(5, (int)$request->request->get('interval', 60));
             $sortOrder = (int)$request->request->get('sort_order', 10);
             $isEnabled = (bool)$request->request->get('is_enabled', true);
 
@@ -104,6 +105,7 @@ class AdminController extends AbstractController
                         'provider' => $provider,
                         'country' => $country,
                     ],
+                    interval: $interval,
                     sortOrder: $sortOrder
                 );
 
@@ -146,6 +148,7 @@ class AdminController extends AbstractController
             $check->type = trim((string)$request->request->get('type', $check->type));
             $check->groupName = trim((string)$request->request->get('group_name', $check->groupName));
             $check->description = trim((string)$request->request->get('description', ''));
+            $check->interval = max(5, (int)$request->request->get('interval', $check->interval));
             $check->sortOrder = (int)$request->request->get('sort_order', $check->sortOrder);
             $check->isEnabled = (bool)$request->request->get('is_enabled');
 

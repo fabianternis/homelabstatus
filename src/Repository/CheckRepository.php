@@ -23,7 +23,7 @@ class CheckRepository
         $stmt = $pdo->query("SELECT COUNT(*) FROM checks WHERE deleted_at IS NULL");
         if ((int)$stmt->fetchColumn() === 0) {
             $defaults = [
-                // Uplink Probes
+                // Uplink Probes (30s interval)
                 [
                     'id' => Ulid::generate(),
                     'name' => 'Cloudflare DNS (Primary)',
@@ -32,6 +32,7 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Cloudflare Anycast Resolver 1.1.1.1',
                     'config' => json_encode(['host' => '1.1.1.1', 'packets' => 2, 'timeout' => 2, 'provider' => 'Cloudflare Anycast', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 10,
                 ],
                 [
@@ -42,6 +43,7 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Cloudflare Anycast Resolver 1.0.0.1',
                     'config' => json_encode(['host' => '1.0.0.1', 'packets' => 2, 'timeout' => 2, 'provider' => 'Cloudflare Anycast', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 20,
                 ],
                 [
@@ -52,6 +54,7 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Google Anycast Resolver 8.8.8.8',
                     'config' => json_encode(['host' => '8.8.8.8', 'packets' => 2, 'timeout' => 2, 'provider' => 'Google Anycast', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 30,
                 ],
                 [
@@ -62,6 +65,7 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Google Anycast Resolver 8.8.4.4',
                     'config' => json_encode(['host' => '8.8.4.4', 'packets' => 2, 'timeout' => 2, 'provider' => 'Google Anycast', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 40,
                 ],
                 [
@@ -72,6 +76,7 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Quad9 Foundation Resolver 9.9.9.9',
                     'config' => json_encode(['host' => '9.9.9.9', 'packets' => 2, 'timeout' => 2, 'provider' => 'Quad9 Foundation', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 50,
                 ],
                 [
@@ -82,9 +87,10 @@ class CheckRepository
                     'group_name' => 'Global Anycast DNS',
                     'description' => 'Cisco OpenDNS Anycast Resolver 208.67.222.222',
                     'config' => json_encode(['host' => '208.67.222.222', 'packets' => 2, 'timeout' => 2, 'provider' => 'Cisco Anycast', 'country' => 'Global']),
+                    'interval_sec' => 30,
                     'sort_order' => 60,
                 ],
-                // HTTP / HTTPS Web Services
+                // HTTP / HTTPS Web Services (60s interval)
                 [
                     'id' => Ulid::generate(),
                     'name' => 'Cloudflare Web Service',
@@ -93,6 +99,7 @@ class CheckRepository
                     'group_name' => 'Web Endpoints',
                     'description' => 'Cloudflare Main Landing and Edge SSL',
                     'config' => json_encode(['url' => 'https://www.cloudflare.com', 'host' => 'www.cloudflare.com', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Cloudflare Edge']),
+                    'interval_sec' => 60,
                     'sort_order' => 100,
                 ],
                 [
@@ -103,6 +110,7 @@ class CheckRepository
                     'group_name' => 'Web Endpoints',
                     'description' => 'Google Search Web Endpoint',
                     'config' => json_encode(['url' => 'https://www.google.com', 'host' => 'www.google.com', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Google Edge']),
+                    'interval_sec' => 60,
                     'sort_order' => 110,
                 ],
                 [
@@ -113,13 +121,14 @@ class CheckRepository
                     'group_name' => 'Web Endpoints',
                     'description' => 'Quad9 Official Web Portal',
                     'config' => json_encode(['url' => 'https://www.quad9.net', 'host' => 'www.quad9.net', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Quad9']),
+                    'interval_sec' => 60,
                     'sort_order' => 120,
                 ],
             ];
 
             $insert = $pdo->prepare('
-                INSERT OR IGNORE INTO checks (id, name, slug, type, group_name, description, is_enabled, status, config, sort_order, created_at, updated_at)
-                VALUES (:id, :name, :slug, :type, :group_name, :description, 1, "unknown", :config, :sort_order, datetime("now"), datetime("now"))
+                INSERT OR IGNORE INTO checks (id, name, slug, type, group_name, description, is_enabled, status, config, interval_sec, sort_order, created_at, updated_at)
+                VALUES (:id, :name, :slug, :type, :group_name, :description, 1, "unknown", :config, :interval_sec, :sort_order, datetime("now"), datetime("now"))
             ');
 
             foreach ($defaults as $d) {
@@ -147,6 +156,41 @@ class CheckRepository
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':type' => $type]);
+
+        $checks = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $checks[] = Check::fromArray($row);
+        }
+
+        return $checks;
+    }
+
+    /**
+     * Finds checks that are due for execution based on their individual interval
+     * @return Check[]
+     */
+    public function findDueChecks(?string $type = null): array
+    {
+        $this->initDefaults();
+        $pdo = $this->connection->getPdo();
+
+        $sql = '
+            SELECT * FROM checks
+            WHERE is_enabled = 1
+            AND deleted_at IS NULL
+            AND (
+                last_executed_at IS NULL
+                OR datetime(last_executed_at, "+" || interval_sec || " seconds") <= datetime("now")
+            )
+        ';
+
+        if ($type !== null) {
+            $sql .= ' AND type = :type';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':type' => $type]);
+        } else {
+            $stmt = $pdo->query($sql);
+        }
 
         $checks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -224,11 +268,11 @@ class CheckRepository
         $stmt = $pdo->prepare('
             INSERT INTO checks (
                 id, name, slug, type, group_name, description, is_enabled, status,
-                config, last_metrics, last_executed_at, last_status_change_at,
+                config, interval_sec, last_metrics, last_executed_at, last_status_change_at,
                 consecutive_failures, sort_order, created_at, updated_at, deleted_at
             ) VALUES (
                 :id, :name, :slug, :type, :group_name, :description, :is_enabled, :status,
-                :config, :last_metrics, :last_executed_at, :last_status_change_at,
+                :config, :interval_sec, :last_metrics, :last_executed_at, :last_status_change_at,
                 :consecutive_failures, :sort_order, :created_at, :updated_at, :deleted_at
             )
             ON CONFLICT(id) DO UPDATE SET
@@ -240,6 +284,7 @@ class CheckRepository
                 is_enabled = excluded.is_enabled,
                 status = excluded.status,
                 config = excluded.config,
+                interval_sec = excluded.interval_sec,
                 last_metrics = excluded.last_metrics,
                 last_executed_at = excluded.last_executed_at,
                 last_status_change_at = excluded.last_status_change_at,
@@ -259,6 +304,7 @@ class CheckRepository
             ':is_enabled' => $check->isEnabled ? 1 : 0,
             ':status' => $check->status->value,
             ':config' => json_encode($check->config, JSON_UNESCAPED_SLASHES),
+            ':interval_sec' => $check->interval,
             ':last_metrics' => $check->lastMetrics !== null ? json_encode($check->lastMetrics, JSON_UNESCAPED_SLASHES) : null,
             ':last_executed_at' => $check->lastExecutedAt,
             ':last_status_change_at' => $check->lastStatusChangeAt,
@@ -276,7 +322,6 @@ class CheckRepository
         $pdo = $this->connection->getPdo();
         $now = $executedAt ?? gmdate('Y-m-d H:i:s');
 
-        // Check if status changed
         $currentStmt = $pdo->prepare('SELECT status FROM checks WHERE id = ?');
         $currentStmt->execute([$id]);
         $oldStatus = $currentStmt->fetchColumn();

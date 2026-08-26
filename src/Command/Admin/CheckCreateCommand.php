@@ -38,6 +38,7 @@ class CheckCreateCommand extends Command
             ->addOption('type', 't', InputOption::VALUE_OPTIONAL, 'Check type', 'uplink')
             ->addOption('group', 'g', InputOption::VALUE_OPTIONAL, 'Group name', 'Uplink Probes')
             ->addOption('provider', 'p', InputOption::VALUE_OPTIONAL, 'Provider name', 'Custom')
+            ->addOption('interval', 'i', InputOption::VALUE_OPTIONAL, 'Probe interval in seconds', 60)
             ->addOption('packets', null, InputOption::VALUE_OPTIONAL, 'ICMP packets per check', 2)
             ->addOption('timeout', null, InputOption::VALUE_OPTIONAL, 'Timeout in seconds', 2);
     }
@@ -50,6 +51,7 @@ class CheckCreateCommand extends Command
         $type = (string)$input->getOption('type');
         $group = (string)$input->getOption('group');
         $provider = (string)$input->getOption('provider');
+        $interval = max(5, (int)$input->getOption('interval'));
         $packets = (int)$input->getOption('packets');
         $timeout = (int)$input->getOption('timeout');
 
@@ -69,6 +71,7 @@ class CheckCreateCommand extends Command
                 'provider' => $provider,
                 'country' => 'Global',
             ],
+            interval: $interval,
             sortOrder: 10
         );
 

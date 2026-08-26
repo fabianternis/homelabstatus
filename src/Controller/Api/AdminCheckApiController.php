@@ -75,6 +75,8 @@ class AdminCheckApiController extends AbstractController
         $config['provider'] = (string)($config['provider'] ?? 'Custom');
         $config['country'] = (string)($config['country'] ?? 'Global');
 
+        $interval = (int)($payload['interval'] ?? ($payload['interval_sec'] ?? 60));
+
         $check = new Check(
             id: Ulid::generate(),
             name: $name,
@@ -85,6 +87,7 @@ class AdminCheckApiController extends AbstractController
             isEnabled: (bool)($payload['is_enabled'] ?? true),
             status: UplinkState::UNKNOWN,
             config: $config,
+            interval: max(5, $interval),
             sortOrder: (int)($payload['sort_order'] ?? 10)
         );
 
@@ -122,6 +125,9 @@ class AdminCheckApiController extends AbstractController
         if (isset($payload['group_name'])) $check->groupName = trim((string)$payload['group_name']);
         if (isset($payload['description'])) $check->description = $payload['description'];
         if (isset($payload['is_enabled'])) $check->isEnabled = (bool)$payload['is_enabled'];
+        if (isset($payload['interval']) || isset($payload['interval_sec'])) {
+            $check->interval = max(5, (int)($payload['interval'] ?? $payload['interval_sec']));
+        }
         if (isset($payload['sort_order'])) $check->sortOrder = (int)$payload['sort_order'];
 
         if (isset($payload['config']) && is_array($payload['config'])) {

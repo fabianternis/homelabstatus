@@ -48,6 +48,15 @@ class UplinkApiTest extends TestCase
                     probedAt: new \DateTimeImmutable()
                 );
             }
+
+            public function pingMulti(array $targets, int $count = 2, int $timeoutSeconds = 2): array
+            {
+                $results = [];
+                foreach ($targets as $target) {
+                    $results[$target->id] = $this->ping($target, $count, $timeoutSeconds);
+                }
+                return $results;
+            }
         };
 
         $this->monitorService = new UplinkMonitorService(

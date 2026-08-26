@@ -62,29 +62,26 @@ class UplinkHealthEvaluator
         $avgLoss = !empty($lossValues) ? array_sum($lossValues) / count($lossValues) : 100.0;
         $avgJitter = !empty($jitters) ? array_sum($jitters) / count($jitters) : 0.0;
 
-        // Health Score Calculation (100 base)
-        // 1. Packet Loss Penalty (up to 60 points deducted)
-        $lossPenalty = min(60.0, $avgLoss * 0.6);
+        // Health Score (0 - 100)
+        // 1. Packet loss deduction (50 pts max)
+        $lossPenalty = min(50.0, $avgLoss * 1.5);
 
-        // 2. Latency Penalty (up to 25 points deducted if latency exceeds 30ms baseline)
+        // 2. High latency deduction (only if average latency exceeds 80ms)
         $latencyPenalty = 0.0;
-        if ($avgLatency > 30.0) {
-            $latencyPenalty = min(25.0, ($avgLatency - 30.0) * 0.25);
+        if ($avgLatency > 80.0) {
+            $latencyPenalty = min(30.0, ($avgLatency - 80.0) * 0.3);
         }
 
-        // 3. Jitter Penalty (up to 15 points deducted if jitter exceeds 5ms)
-        $jitterPenalty = 0.0;
-        if ($avgJitter > 5.0) {
-            $jitterPenalty = min(15.0, ($avgJitter - 5.0) * 0.5);
-        }
+        // 3. Unreachable target deduction
+        $unreachablePenalty = ($totalTargets - $reachableCount) * (50.0 / max(1, $totalTargets));
 
-        $healthScore = (int)round(max(0.0, min(100.0, 100.0 - $lossPenalty - $latencyPenalty - $jitterPenalty)));
+        $healthScore = (int)round(max(0.0, min(100.0, 100.0 - $lossPenalty - $latencyPenalty - $unreachablePenalty)));
 
         // State Determination
         $state = match (true) {
-            $reachableCount === 0 || $avgLoss >= 90.0 => UplinkState::OFFLINE,
-            $healthScore < 70 || $avgLoss > 5.0 || $avgLatency > 150.0 => UplinkState::DEGRADED,
-            $healthScore >= 90 && $avgLoss === 0.0 && $avgLatency <= 45.0 => UplinkState::EXCELLENT,
+            $reachableCount === 0 || $avgLoss >= 80.0 => UplinkState::OFFLINE,
+            $healthScore < 70 || $avgLoss > 15.0 || $avgLatency > 200.0 => UplinkState::DEGRADED,
+            $healthScore >= 90 && $avgLoss === 0.0 && $avgLatency <= 80.0 => UplinkState::EXCELLENT,
             default => UplinkState::GOOD,
         };
 

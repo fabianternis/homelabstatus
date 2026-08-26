@@ -10,8 +10,19 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .blur-ip {
+            filter: blur(5px);
+            transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .blur-ip:hover {
+            filter: blur(0);
+            user-select: text;
+        }
+
         @keyframes pulse-highlight {
-            0% { background-color: rgba(16, 185, 129, 0.2); }
+            0% { background-color: rgba(16, 185, 129, 0.25); }
             100% { background-color: transparent; }
         }
         .live-updated {
@@ -36,6 +47,14 @@
             </div>
 
             <div class="flex items-center gap-3 text-xs font-mono">
+                <!-- IP Address (Blurred by default, hover to reveal) -->
+                <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs" title="Hover to reveal IP address">
+                    <span class="text-zinc-500 font-sans text-[11px]">IP:</span>
+                    <span class="blur-ip font-mono text-zinc-200 font-semibold cursor-pointer px-1 py-0.5 bg-zinc-950/80 rounded border border-zinc-800/60">
+                        {{ clientIp|default('127.0.0.1') }}
+                    </span>
+                </div>
+
                 <!-- Live indicator -->
                 <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
                     <span id="connection-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -113,7 +132,10 @@
         <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-bold text-white">External Target Probes & Historical Sparklines</h2>
-                <span class="text-xs font-mono text-zinc-500">Live SSE Stream Enabled</span>
+                <div class="flex items-center gap-2 text-xs font-mono text-zinc-500">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+                    <span>Live SSE Stream</span>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
@@ -174,16 +196,15 @@
         </div>
     </main>
 
-    <!-- Client-side SSE Live Update Engine -->
+    <!-- Client-side SSE Live Update Engine with Page Visibility Management -->
     <script>
         let eventSource = null;
-        let isPaused = false;
+        let isManuallyPaused = false;
         let fallbackTimer = null;
 
         function connectSSE() {
-            if (isPaused) return;
+            if (isManuallyPaused || document.hidden) return;
 
-            const badge = document.getElementById('connection-badge');
             const dot = document.getElementById('connection-dot');
             const text = document.getElementById('connection-text');
 
@@ -201,7 +222,7 @@
                 });
 
                 eventSource.addEventListener('update', (event) => {
-                    if (isPaused) return;
+                    if (isManuallyPaused || document.hidden) return;
                     try {
                         const data = JSON.parse(event.data);
                         updateDOM(data);
@@ -211,25 +232,55 @@
                 });
 
                 eventSource.onerror = () => {
+                    if (document.hidden) return;
                     dot.className = 'w-2 h-2 rounded-full bg-amber-500';
                     text.textContent = 'FALLBACK POLLING';
                     text.className = 'text-amber-400 font-bold';
                     eventSource.close();
-                    // Fallback to polling every 3 seconds
-                    if (!fallbackTimer) {
+                    if (!fallbackTimer && !document.hidden) {
                         fallbackTimer = setInterval(pollFallback, 3000);
                     }
                 };
             } catch (e) {
                 console.error('SSE initialization error', e);
-                if (!fallbackTimer) {
+                if (!fallbackTimer && !document.hidden) {
                     fallbackTimer = setInterval(pollFallback, 3000);
                 }
             }
         }
 
+        function disconnectSSE(reason = 'PAUSED') {
+            const dot = document.getElementById('connection-dot');
+            const text = document.getElementById('connection-text');
+
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (fallbackTimer) {
+                clearInterval(fallbackTimer);
+                fallbackTimer = null;
+            }
+
+            dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+            text.textContent = reason;
+            text.className = 'text-zinc-500 font-bold';
+        }
+
+        // Tab visibility listener: only keep connection alive when tab is actively focused
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                disconnectSSE('IDLE (TAB IN BACKGROUND)');
+            } else {
+                if (!isManuallyPaused) {
+                    connectSSE();
+                    triggerImmediateProbe(); // Immediate refresh when user switches back to tab
+                }
+            }
+        });
+
         async function pollFallback() {
-            if (isPaused) return;
+            if (isManuallyPaused || document.hidden) return;
             try {
                 const res = await fetch('/api/v1/uplink/history?samples=20');
                 const statusRes = await fetch('/api/v1/uplink');
@@ -250,7 +301,7 @@
             const summary = payload.summary;
             const history = payload.history;
 
-            // 1. Update Hero Card
+            // 1. Hero Card
             document.getElementById('hero-title').textContent = 'Uplink ' + (summary.state_label || summary.state);
             const stateBadge = document.getElementById('hero-state-badge');
             stateBadge.textContent = summary.state;
@@ -308,21 +359,15 @@
 
         function toggleLiveStream() {
             const btn = document.getElementById('toggle-live-btn');
-            const dot = document.getElementById('connection-dot');
-            const text = document.getElementById('connection-text');
 
-            if (isPaused) {
-                isPaused = false;
+            if (isManuallyPaused) {
+                isManuallyPaused = false;
                 btn.textContent = 'Pause';
                 connectSSE();
             } else {
-                isPaused = true;
+                isManuallyPaused = true;
                 btn.textContent = 'Resume';
-                dot.className = 'w-2 h-2 rounded-full bg-zinc-500';
-                text.textContent = 'PAUSED';
-                text.className = 'text-zinc-500 font-bold';
-                if (eventSource) eventSource.close();
-                if (fallbackTimer) clearInterval(fallbackTimer);
+                disconnectSSE('PAUSED');
             }
         }
 
@@ -343,16 +388,18 @@
                     });
                 }
             } catch (e) {
-                alert('Probe error: ' + e);
+                console.error('Probe error', e);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = 'Ping Now';
             }
         }
 
-        // Start SSE on page load
+        // Start SSE on initial page load if visible
         window.addEventListener('DOMContentLoaded', () => {
-            connectSSE();
+            if (!document.hidden) {
+                connectSSE();
+            }
         });
     </script>
 </body>

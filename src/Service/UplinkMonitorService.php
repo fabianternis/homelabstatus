@@ -22,17 +22,20 @@ class UplinkMonitorService
     ) {}
 
     /**
-     * Executes immediate probes to all active external targets, records them, and returns summary
+     * Executes parallel probes to all active external targets, records them, and returns summary
      */
-    public function probeAll(int $packetsPerTarget = 3): UplinkSummaryDto
+    public function probeAll(int $packetsPerTarget = 2): UplinkSummaryDto
     {
         $targets = $this->targetRepository->getActiveTargets();
+        $resultsMap = $this->pingRunner->pingMulti($targets, $packetsPerTarget);
         $results = [];
 
         foreach ($targets as $target) {
-            $result = $this->pingRunner->ping($target, $packetsPerTarget);
-            $this->probeLogRepository->record($result);
-            $results[] = $result;
+            $result = $resultsMap[$target->id] ?? null;
+            if ($result !== null) {
+                $this->probeLogRepository->record($result);
+                $results[] = $result;
+            }
         }
 
         return $this->evaluator->evaluate($results);

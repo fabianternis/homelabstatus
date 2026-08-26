@@ -10,4 +10,11 @@ use App\DTO\TargetDto;
 interface PingRunnerInterface
 {
     public function ping(TargetDto $target, int $count = 3, int $timeoutSeconds = 2): PingResultDto;
+
+    /**
+     * Probes multiple targets concurrently in parallel
+     * @param TargetDto[] $targets
+     * @return array<string, PingResultDto>
+     */
+    public function pingMulti(array $targets, int $count = 2, int $timeoutSeconds = 2): array;
 }

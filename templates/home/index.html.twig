@@ -22,11 +22,17 @@
         }
 
         @keyframes pulse-highlight {
-            0% { background-color: rgba(16, 185, 129, 0.25); }
-            100% { background-color: transparent; }
+            0% {
+                background-color: rgba(16, 185, 129, 0.25);
+                color: #34d399;
+                border-radius: 4px;
+            }
+            100% {
+                background-color: transparent;
+            }
         }
         .live-updated {
-            animation: pulse-highlight 0.8s ease-out;
+            animation: pulse-highlight 0.9s ease-out;
         }
     </style>
 </head>
@@ -159,14 +165,10 @@
                                     <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.target.provider|default('Anycast') }}</div>
                                 </td>
                                 <td class="py-3 font-mono text-zinc-300">{{ targetRes.host }}</td>
-                                <td id="lat-{{ targetRes.targetId }}" class="py-3 font-mono text-white font-bold">{{ targetRes.avgLatencyMs|round(1) }} ms</td>
-                                <td id="jit-{{ targetRes.targetId }}" class="py-3 font-mono text-zinc-400">±{{ targetRes.jitterMs|round(1) }} ms</td>
-                                <td id="loss-{{ targetRes.targetId }}" class="py-3 font-mono {% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
-                                    {{ targetRes.packetLossPercent|round(0) }}%
-                                </td>
-                                <td id="spark-{{ targetRes.targetId }}" class="py-3 font-mono text-emerald-400 text-sm tracking-widest">
-                                    {{ tInfo.sparkline|default('────────') }}
-                                </td>
+                                <td class="py-3 font-mono text-white font-bold"><span id="lat-{{ targetRes.targetId }}">{{ targetRes.avgLatencyMs|round(1) }} ms</span></td>
+                                <td class="py-3 font-mono text-zinc-400"><span id="jit-{{ targetRes.targetId }}">±{{ targetRes.jitterMs|round(1) }} ms</span></td>
+                                <td class="py-3 font-mono"><span id="loss-{{ targetRes.targetId }}" class="{% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">{{ targetRes.packetLossPercent|round(0) }}%</span></td>
+                                <td class="py-3 font-mono text-emerald-400 text-sm tracking-widest"><span id="spark-{{ targetRes.targetId }}">{{ tInfo.sparkline|default('────────') }}</span></td>
                                 <td id="badge-{{ targetRes.targetId }}" class="py-3 text-right">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if targetRes.state.value == 'excellent' or targetRes.state.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
                                         {{ targetRes.state.value }}
@@ -196,11 +198,29 @@
         </div>
     </main>
 
-    <!-- Client-side SSE Live Update Engine with Page Visibility Management -->
+    <!-- Client-side SSE Live Update Engine with Granular Flashing -->
     <script>
         let eventSource = null;
         let isManuallyPaused = false;
         let fallbackTimer = null;
+
+        // Helper: Updates an element only if its content changed, and flashes only that specific element
+        function updateIfChanged(el, newContent, isHtml = false) {
+            if (!el) return;
+            const current = (isHtml ? el.innerHTML : el.textContent).trim();
+            const incoming = String(newContent).trim();
+
+            if (current !== incoming) {
+                if (isHtml) {
+                    el.innerHTML = newContent;
+                } else {
+                    el.textContent = newContent;
+                }
+                el.classList.remove('live-updated');
+                void el.offsetWidth; // trigger reflow
+                el.classList.add('live-updated');
+            }
+        }
 
         function connectSSE() {
             if (isManuallyPaused || document.hidden) return;
@@ -302,56 +322,62 @@
             const history = payload.history;
 
             // 1. Hero Card
-            document.getElementById('hero-title').textContent = 'Uplink ' + (summary.state_label || summary.state);
+            updateIfChanged(document.getElementById('hero-title'), 'Uplink ' + (summary.state_label || summary.state));
+            
             const stateBadge = document.getElementById('hero-state-badge');
-            stateBadge.textContent = summary.state;
-            if (summary.state === 'excellent' || summary.state === 'good') {
-                stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-            } else {
-                stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            if (stateBadge) {
+                updateIfChanged(stateBadge, summary.state);
+                if (summary.state === 'excellent' || summary.state === 'good') {
+                    stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                } else {
+                    stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
+                }
             }
 
-            document.getElementById('hero-score').textContent = summary.health_score;
-            document.getElementById('hero-targets-count').textContent = `${summary.targets_summary.healthy} of ${summary.targets_summary.total}`;
+            updateIfChanged(document.getElementById('hero-score'), summary.health_score);
+            updateIfChanged(document.getElementById('hero-targets-count'), `${summary.targets_summary.healthy} of ${summary.targets_summary.total}`);
             
             const time = new Date(summary.evaluated_at);
             document.getElementById('hero-evaluated-time').textContent = time.toLocaleTimeString();
 
             // 2. Vitals
-            document.getElementById('vital-latency').textContent = summary.metrics.avg_latency_ms + ' ms';
-            document.getElementById('vital-loss').textContent = summary.metrics.avg_packet_loss_percent + '%';
-            document.getElementById('vital-jitter').textContent = '±' + summary.metrics.avg_jitter_ms + ' ms';
+            updateIfChanged(document.getElementById('vital-latency'), summary.metrics.avg_latency_ms + ' ms');
+            updateIfChanged(document.getElementById('vital-loss'), summary.metrics.avg_packet_loss_percent + '%');
+            updateIfChanged(document.getElementById('vital-jitter'), '±' + summary.metrics.avg_jitter_ms + ' ms');
 
-            // 3. Targets Table
+            // 3. Targets Table (Flash ONLY individual cells that actually changed)
             if (summary.targets && summary.targets.length > 0) {
                 summary.targets.forEach(t => {
-                    const row = document.getElementById('row-' + t.target_id);
                     const latEl = document.getElementById('lat-' + t.target_id);
                     const jitEl = document.getElementById('jit-' + t.target_id);
                     const lossEl = document.getElementById('loss-' + t.target_id);
                     const sparkEl = document.getElementById('spark-' + t.target_id);
                     const badgeEl = document.getElementById('badge-' + t.target_id);
 
-                    if (latEl) latEl.textContent = t.avg_latency_ms !== null ? t.avg_latency_ms + ' ms' : 'DOWN';
-                    if (jitEl) jitEl.textContent = t.jitter_ms !== null ? '±' + t.jitter_ms + ' ms' : '-';
-                    if (lossEl) {
-                        lossEl.textContent = t.packet_loss_percent + '%';
-                        lossEl.className = 'py-3 font-mono ' + (t.packet_loss_percent === 0 ? 'text-emerald-400' : 'text-rose-400');
+                    if (latEl) {
+                        const newLat = t.avg_latency_ms !== null ? t.avg_latency_ms + ' ms' : 'DOWN';
+                        updateIfChanged(latEl, newLat);
                     }
 
-                    if (history && history.targets && history.targets[t.target_id]) {
-                        if (sparkEl) sparkEl.textContent = history.targets[t.target_id].sparkline;
+                    if (jitEl) {
+                        const newJit = t.jitter_ms !== null ? '±' + t.jitter_ms + ' ms' : '-';
+                        updateIfChanged(jitEl, newJit);
+                    }
+
+                    if (lossEl) {
+                        const newLoss = t.packet_loss_percent + '%';
+                        updateIfChanged(lossEl, newLoss);
+                        lossEl.className = 'transition ' + (t.packet_loss_percent === 0 ? 'text-emerald-400' : 'text-rose-400');
+                    }
+
+                    if (history && history.targets && history.targets[t.target_id] && sparkEl) {
+                        updateIfChanged(sparkEl, history.targets[t.target_id].sparkline);
                     }
 
                     if (badgeEl) {
                         const isGood = t.state === 'excellent' || t.state === 'good';
-                        badgeEl.innerHTML = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isGood ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}">${t.state}</span>`;
-                    }
-
-                    if (row) {
-                        row.classList.remove('live-updated');
-                        void row.offsetWidth; // trigger reflow
-                        row.classList.add('live-updated');
+                        const newBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isGood ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}">${t.state}</span>`;
+                        updateIfChanged(badgeEl, newBadgeHtml, true);
                     }
                 });
             }

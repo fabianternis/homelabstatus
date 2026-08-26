@@ -20,9 +20,10 @@ class CheckRepository
     public function initDefaults(): void
     {
         $pdo = $this->connection->getPdo();
-        $stmt = $pdo->query("SELECT COUNT(*) FROM checks WHERE type = 'uplink' AND deleted_at IS NULL");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM checks WHERE deleted_at IS NULL");
         if ((int)$stmt->fetchColumn() === 0) {
             $defaults = [
+                // Uplink Probes
                 [
                     'id' => Ulid::generate(),
                     'name' => 'Cloudflare DNS (Primary)',
@@ -83,6 +84,37 @@ class CheckRepository
                     'config' => json_encode(['host' => '208.67.222.222', 'packets' => 2, 'timeout' => 2, 'provider' => 'Cisco Anycast', 'country' => 'Global']),
                     'sort_order' => 60,
                 ],
+                // HTTP / HTTPS Web Services
+                [
+                    'id' => Ulid::generate(),
+                    'name' => 'Cloudflare Web Service',
+                    'slug' => 'cloudflare-web',
+                    'type' => 'http',
+                    'group_name' => 'Web Endpoints',
+                    'description' => 'Cloudflare Main Landing and Edge SSL',
+                    'config' => json_encode(['url' => 'https://www.cloudflare.com', 'host' => 'www.cloudflare.com', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Cloudflare Edge']),
+                    'sort_order' => 100,
+                ],
+                [
+                    'id' => Ulid::generate(),
+                    'name' => 'Google HTTPS Endpoint',
+                    'slug' => 'google-https',
+                    'type' => 'http',
+                    'group_name' => 'Web Endpoints',
+                    'description' => 'Google Search Web Endpoint',
+                    'config' => json_encode(['url' => 'https://www.google.com', 'host' => 'www.google.com', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Google Edge']),
+                    'sort_order' => 110,
+                ],
+                [
+                    'id' => Ulid::generate(),
+                    'name' => 'Quad9 Web Portal',
+                    'slug' => 'quad9-web',
+                    'type' => 'http',
+                    'group_name' => 'Web Endpoints',
+                    'description' => 'Quad9 Official Web Portal',
+                    'config' => json_encode(['url' => 'https://www.quad9.net', 'host' => 'www.quad9.net', 'method' => 'GET', 'expected_status' => 200, 'timeout' => 5, 'check_ssl' => true, 'provider' => 'Quad9']),
+                    'sort_order' => 120,
+                ],
             ];
 
             $insert = $pdo->prepare('
@@ -116,6 +148,32 @@ class CheckRepository
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':type' => $type]);
 
+        $checks = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $checks[] = Check::fromArray($row);
+        }
+
+        return $checks;
+    }
+
+    /**
+     * @return Check[]
+     */
+    public function getAll(bool $onlyEnabled = false, bool $withTrashed = false): array
+    {
+        $this->initDefaults();
+        $pdo = $this->connection->getPdo();
+
+        $sql = 'SELECT * FROM checks WHERE 1=1';
+        if ($onlyEnabled) {
+            $sql .= ' AND is_enabled = 1';
+        }
+        if (!$withTrashed) {
+            $sql .= ' AND deleted_at IS NULL';
+        }
+        $sql .= ' ORDER BY type ASC, sort_order ASC, name ASC';
+
+        $stmt = $pdo->query($sql);
         $checks = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $checks[] = Check::fromArray($row);
@@ -245,9 +303,6 @@ class CheckRepository
         ]);
     }
 
-    /**
-     * Soft delete a check
-     */
     public function softDelete(string $id): bool
     {
         $pdo = $this->connection->getPdo();
@@ -255,9 +310,6 @@ class CheckRepository
         return $stmt->execute([$id]) && $stmt->rowCount() > 0;
     }
 
-    /**
-     * Restore a soft-deleted check
-     */
     public function restore(string $id): bool
     {
         $pdo = $this->connection->getPdo();
@@ -265,9 +317,6 @@ class CheckRepository
         return $stmt->execute([$id]) && $stmt->rowCount() > 0;
     }
 
-    /**
-     * Force permanent delete
-     */
     public function forceDelete(string $id): bool
     {
         $pdo = $this->connection->getPdo();

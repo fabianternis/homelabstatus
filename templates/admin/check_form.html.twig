@@ -7,7 +7,7 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-extrabold text-white">{{ isEdit ? 'Edit Check: ' ~ check.name : 'Create New Monitored Check' }}</h1>
-            <p class="text-xs text-zinc-400 mt-1">Configure probe settings, target IP/host, and classification criteria.</p>
+            <p class="text-xs text-zinc-400 mt-1">Configure probe settings, target IP/URL, and classification criteria.</p>
         </div>
         <a href="/admin/checks" class="text-xs font-mono text-zinc-400 hover:text-white">← Back to Checks</a>
     </div>
@@ -16,45 +16,67 @@
         <div class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Check Name</label>
-                <input type="text" name="name" value="{{ check ? check.name : '' }}" required placeholder="e.g. Cloudflare DNS (Primary)" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <input type="text" name="name" value="{{ check ? check.name : '' }}" required placeholder="e.g. Cloudflare Web Portal or Primary Gateway" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Target Host / IP</label>
-                    <input type="text" name="host" value="{{ check ? check.config.host|default('') : '' }}" required placeholder="e.g. 1.1.1.1 or google.com" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Check Type</label>
+                    <select name="type" id="check_type" onchange="toggleTypeFields(this.value)" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                        <option value="uplink" {% if not check or check.type == 'uplink' %}selected{% endif %}>uplink (Multi-Packet Anycast Ping)</option>
+                        <option value="http" {% if check and check.type == 'http' %}selected{% endif %}>http / https (Web Endpoint & SSL)</option>
+                        <option value="icmp_ping" {% if check and check.type == 'icmp_ping' %}selected{% endif %}>icmp_ping (Single Host Ping)</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Check Type</label>
-                    <select name="type" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                        <option value="uplink" {% if check and check.type == 'uplink' %}selected{% endif %}>uplink (WAN Probing)</option>
-                        <option value="icmp_ping" {% if check and check.type == 'icmp_ping' %}selected{% endif %}>icmp_ping (Generic ICMP)</option>
-                        <option value="http" {% if check and check.type == 'http' %}selected{% endif %}>http (Web Endpoint)</option>
-                        <option value="tcp" {% if check and check.type == 'tcp' %}selected{% endif %}>tcp (Port Check)</option>
-                        <option value="dns" {% if check and check.type == 'dns' %}selected{% endif %}>dns (DNS Resolution)</option>
-                    </select>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Target Host / IP / URL</label>
+                    <input type="text" name="host" value="{{ check ? (check.config.url|default(check.config.host|default(''))) : '' }}" required placeholder="e.g. 1.1.1.1 or https://example.com" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Group Name</label>
-                    <input type="text" name="group_name" value="{{ check ? check.groupName : 'Uplink Probes' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="group_name" value="{{ check ? check.groupName : 'Web Endpoints' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Provider / Label</label>
-                    <input type="text" name="provider" value="{{ check ? check.config.provider|default('Anycast') : 'Anycast' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="provider" value="{{ check ? check.config.provider|default('Cloudflare') : 'Cloudflare' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
             </div>
 
+            <!-- HTTP-Specific Fields -->
+            <div id="http_fields" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 {% if not check or check.type != 'http' %}hidden{% endif %}">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase">HTTP Configuration</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected HTTP Status Code</label>
+                        <input type="number" name="expected_status" value="{{ check ? check.config.expected_status|default(200) : 200 }}" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">HTTP Method</label>
+                        <select name="method" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                            <option value="GET" {% if not check or check.config.method|default('GET') == 'GET' %}selected{% endif %}>GET</option>
+                            <option value="HEAD" {% if check and check.config.method|default('') == 'HEAD' %}selected{% endif %}>HEAD</option>
+                            <option value="POST" {% if check and check.config.method|default('') == 'POST' %}selected{% endif %}>POST</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Keyword Match in Response (Optional)</label>
+                    <input type="text" name="keyword" value="{{ check ? check.config.keyword|default('') : '' }}" placeholder="String required in response body" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                </div>
+            </div>
+
+            <!-- General / Ping Fields -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Packets per Probe</label>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Packets (for Ping)</label>
                     <input type="number" name="packets" min="1" max="10" value="{{ check ? check.config.packets|default(2) : 2 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Timeout (seconds)</label>
-                    <input type="number" name="timeout" min="1" max="10" value="{{ check ? check.config.timeout|default(2) : 2 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" name="timeout" min="1" max="30" value="{{ check ? check.config.timeout|default(5) : 5 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Sort Order</label>
@@ -81,4 +103,15 @@
         </div>
     </form>
 </div>
+
+<script>
+    function toggleTypeFields(type) {
+        const httpFields = document.getElementById('http_fields');
+        if (type === 'http' || type === 'https') {
+            httpFields.classList.remove('hidden');
+        } else {
+            httpFields.classList.add('hidden');
+        }
+    }
+</script>
 {% endblock %}

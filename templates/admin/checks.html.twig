@@ -1,0 +1,108 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Checks Management{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header & Filter Tabs -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">Monitored Checks</h1>
+            <p class="text-xs text-zinc-400 mt-1">Configure external resolvers, endpoints, and targets with dynamic JSON configurations.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-1 flex items-center gap-1 text-xs font-semibold">
+                <a href="?filter=all" class="px-3 py-1.5 rounded-lg {% if filter == 'all' %}bg-zinc-800 text-white{% else %}text-zinc-400 hover:text-white{% endif %}">Active ({{ totalActive }})</a>
+                <a href="?filter=trashed" class="px-3 py-1.5 rounded-lg {% if filter == 'trashed' %}bg-rose-500/20 text-rose-400{% else %}text-zinc-400 hover:text-white{% endif %}">Trash ({{ totalTrashed }})</a>
+            </div>
+            <a href="/admin/checks/create" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-emerald-950">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Create Check
+            </a>
+        </div>
+    </div>
+
+    <!-- Checks Table -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                        <th class="pb-3">Name / ULID</th>
+                        <th class="pb-3">Target Host</th>
+                        <th class="pb-3">Type & Group</th>
+                        <th class="pb-3">Enabled</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Latency</th>
+                        <th class="pb-3">Loss</th>
+                        <th class="pb-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-800/50">
+                    {% for check in checks %}
+                        <tr class="hover:bg-zinc-800/20 transition">
+                            <td class="py-3.5 font-semibold text-white">
+                                {{ check.name }}
+                                <div class="text-[10px] text-zinc-500 font-mono">{{ check.id }}</div>
+                            </td>
+                            <td class="py-3.5 font-mono text-zinc-300">{{ check.config.host|default('-') }}</td>
+                            <td class="py-3.5 text-zinc-400 font-mono">
+                                <span class="px-2 py-0.5 bg-zinc-800 rounded">{{ check.type }}</span>
+                                <div class="text-[10px] text-zinc-500 font-sans mt-0.5">{{ check.groupName }}</div>
+                            </td>
+                            <td class="py-3.5">
+                                {% if check.isTrashed() %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400">Trashed</span>
+                                {% else %}
+                                    <form action="/admin/checks/{{ check.id }}/toggle" method="POST" class="inline">
+                                        <button type="submit" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase transition {% if check.isEnabled %}bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30{% else %}bg-zinc-800 text-zinc-400 hover:bg-zinc-700{% endif %}">
+                                            {{ check.isEnabled ? 'Enabled' : 'Disabled' }}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if check.status.value == 'excellent' or check.status.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                    {{ check.status.value }}
+                                </span>
+                            </td>
+                            <td class="py-3.5 font-mono font-bold text-white">
+                                {% if check.lastMetrics.avg_latency_ms is defined and check.lastMetrics.avg_latency_ms is not null %}
+                                    {{ check.lastMetrics.avg_latency_ms|round(1) }} ms
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 font-mono {% if (check.lastMetrics.packet_loss_percent|default(0)) == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                {{ check.lastMetrics.packet_loss_percent|default(0)|round(0) }}%
+                            </td>
+                            <td class="py-3.5 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    {% if check.isTrashed() %}
+                                        <form action="/admin/checks/{{ check.id }}/restore" method="POST" class="inline">
+                                            <button type="submit" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded font-semibold text-xs transition">Restore</button>
+                                        </form>
+                                        <form action="/admin/checks/{{ check.id }}/force-delete" method="POST" class="inline" onsubmit="return confirm('Permanently delete this check? This cannot be undone.')">
+                                            <button type="submit" class="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 rounded font-semibold text-xs transition">Destroy</button>
+                                        </form>
+                                    {% else %}
+                                        <a href="/admin/checks/{{ check.id }}/edit" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded font-semibold text-xs transition">Edit</a>
+                                        <form action="/admin/checks/{{ check.id }}/delete" method="POST" class="inline" onsubmit="return confirm('Move this check to trash?')">
+                                            <button type="submit" class="px-2.5 py-1 bg-zinc-800 hover:bg-rose-600/20 hover:text-rose-400 text-zinc-400 rounded font-semibold text-xs transition">Trash</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="py-8 text-center text-zinc-500">No checks found for the selected filter.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

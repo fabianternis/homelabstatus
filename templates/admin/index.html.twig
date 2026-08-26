@@ -1,0 +1,111 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Active Checks</div>
+            <div class="text-3xl font-extrabold text-white mt-1 font-mono">{{ activeChecksCount }}<span class="text-sm font-normal text-zinc-500">/{{ totalChecks }}</span></div>
+        </div>
+
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Degraded / Down</div>
+            <div class="text-3xl font-extrabold {% if degradedChecksCount > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} mt-1 font-mono">{{ degradedChecksCount }}</div>
+        </div>
+
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Total Executions Stored</div>
+            <div class="text-3xl font-extrabold text-white mt-1 font-mono">{{ totalExecutions|number_format }}</div>
+        </div>
+
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-5">
+            <div class="text-[11px] font-mono text-zinc-400 uppercase">Trashed (Soft-Deleted)</div>
+            <div class="text-3xl font-extrabold text-zinc-400 mt-1 font-mono">{{ trashedChecksCount }}</div>
+        </div>
+    </div>
+
+    <!-- Quick Checks Summary & Actions -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white">Monitored Checks Quick Overview</h2>
+            <a href="/admin/checks" class="text-xs font-mono text-emerald-400 hover:underline">Manage All Checks →</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                        <th class="pb-3">Name</th>
+                        <th class="pb-3">Target Host</th>
+                        <th class="pb-3">Type</th>
+                        <th class="pb-3">State</th>
+                        <th class="pb-3">Latency</th>
+                        <th class="pb-3">Last Checked</th>
+                        <th class="pb-3 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-800/50">
+                    {% for check in checks %}
+                        <tr class="hover:bg-zinc-800/20">
+                            <td class="py-3 font-semibold text-white">
+                                {{ check.name }}
+                                <div class="text-[10px] text-zinc-500 font-mono">{{ check.id }}</div>
+                            </td>
+                            <td class="py-3 font-mono text-zinc-300">{{ check.config.host|default('-') }}</td>
+                            <td class="py-3 font-mono text-zinc-400"><span class="px-2 py-0.5 bg-zinc-800 rounded">{{ check.type }}</span></td>
+                            <td class="py-3">
+                                {% if check.isTrashed() %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">Trashed</span>
+                                {% elseif not check.isEnabled %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-800 text-zinc-400">Disabled</span>
+                                {% else %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if check.status.value == 'excellent' or check.status.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                        {{ check.status.value }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 font-mono text-white font-bold">
+                                {% if check.lastMetrics.avg_latency_ms is defined and check.lastMetrics.avg_latency_ms is not null %}
+                                    {{ check.lastMetrics.avg_latency_ms|round(1) }} ms
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="py-3 font-mono text-zinc-400">{{ check.lastExecutedAt|default('Never') }}</td>
+                            <td class="py-3 text-right">
+                                <a href="/admin/checks/{{ check.id }}/edit" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded font-semibold text-xs transition">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Audit Logs -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white">Recent Activity & Audit Trail</h2>
+            <a href="/admin/audit-logs" class="text-xs font-mono text-emerald-400 hover:underline">View Full Audit Log →</a>
+        </div>
+        <div class="space-y-3">
+            {% for log in recentAuditLogs %}
+                <div class="flex items-start justify-between p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-xl text-xs">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 bg-zinc-800 font-mono text-emerald-400 rounded text-[10px] uppercase font-bold">{{ log.event }}</span>
+                            <span class="font-semibold text-white">{{ log.description }}</span>
+                        </div>
+                        <div class="text-zinc-500 text-[11px] font-mono mt-1">Subject: {{ log.subjectId|default('-') }} • Log: {{ log.logName }}</div>
+                    </div>
+                    <span class="text-zinc-500 font-mono text-[11px]">{{ log.createdAt }}</span>
+                </div>
+            {% else %}
+                <div class="text-zinc-500 text-xs py-4 text-center">No activity logged yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

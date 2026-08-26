@@ -36,17 +36,18 @@ class CheckExecutionRepository
     /**
      * @return CheckExecution[]
      */
-    public function getHistoryForCheck(string $checkId, int $limit = 30): array
+    public function getHistoryForCheck(string $checkId, int $limit = 30, int $offset = 0): array
     {
         $pdo = $this->connection->getPdo();
         $stmt = $pdo->prepare('
             SELECT * FROM check_executions
             WHERE check_id = ?
             ORDER BY executed_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         ');
         $stmt->bindValue(1, $checkId, PDO::PARAM_STR);
         $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         $executions = [];
@@ -56,6 +57,52 @@ class CheckExecutionRepository
 
         // Return chronological order (oldest -> newest)
         return array_reverse($executions);
+    }
+
+    /**
+     * Get paginated executions across all or specific check
+     * @return array{total: int, items: CheckExecution[]}
+     */
+    public function paginate(?string $checkId = null, int $page = 1, int $perPage = 50): array
+    {
+        $pdo = $this->connection->getPdo();
+        $offset = ($page - 1) * $perPage;
+
+        $where = $checkId !== null ? 'WHERE check_id = :check_id' : '';
+        $countSql = "SELECT COUNT(*) FROM check_executions {$where}";
+        $stmt = $pdo->prepare($countSql);
+        if ($checkId !== null) {
+            $stmt->bindValue(':check_id', $checkId);
+        }
+        $stmt->execute();
+        $total = (int)$stmt->fetchColumn();
+
+        $sql = "
+            SELECT * FROM check_executions
+            {$where}
+            ORDER BY executed_at DESC
+            LIMIT :limit OFFSET :offset
+        ";
+        $stmt = $pdo->prepare($sql);
+        if ($checkId !== null) {
+            $stmt->bindValue(':check_id', $checkId);
+        }
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $items = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $items[] = CheckExecution::fromArray($row);
+        }
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => (int)ceil($total / max(1, $perPage)),
+            'items' => $items,
+        ];
     }
 
     /**
@@ -120,14 +167,9 @@ class CheckExecutionRepository
         ];
     }
 
-    public function prune(int $keepDays = 7): int
+    public function getTotalCount(): int
     {
         $pdo = $this->connection->getPdo();
-        $stmt = $pdo->prepare("
-            DELETE FROM check_executions
-            WHERE executed_at < datetime('now', '-' || ? || ' days')
-        ");
-        $stmt->execute([$keepDays]);
-        return $stmt->rowCount();
+        return (int)$pdo->query('SELECT COUNT(*) FROM check_executions')->fetchColumn();
     }
 }

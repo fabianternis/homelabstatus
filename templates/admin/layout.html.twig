@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Dashboard{% endblock %} — Homelab Uplink</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+    <!-- Top Nav -->
+    <header class="border-b border-zinc-800/80 bg-zinc-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-6">
+                <a href="/admin" class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-bold text-lg text-white tracking-tight">Homelab <span class="text-emerald-400">Admin</span></span>
+                    </div>
+                </a>
+
+                <nav class="hidden md:flex items-center gap-1 text-xs font-semibold">
+                    <a href="/admin" class="px-3 py-2 rounded-lg hover:bg-zinc-800 hover:text-white text-zinc-400 transition">Overview</a>
+                    <a href="/admin/checks" class="px-3 py-2 rounded-lg hover:bg-zinc-800 hover:text-white text-zinc-400 transition">Checks</a>
+                    <a href="/admin/executions" class="px-3 py-2 rounded-lg hover:bg-zinc-800 hover:text-white text-zinc-400 transition">Executions History</a>
+                    <a href="/admin/audit-logs" class="px-3 py-2 rounded-lg hover:bg-zinc-800 hover:text-white text-zinc-400 transition">Audit Logs</a>
+                </nav>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="/admin/checks/create" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-950 flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    New Check
+                </a>
+                <a href="/" class="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-mono text-xs transition">
+                    Public Dashboard ↗
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Messages -->
+    <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-4">
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="p-4 mb-4 text-xs font-semibold rounded-xl border {% if label == 'success' %}bg-emerald-500/10 text-emerald-400 border-emerald-500/30{% else %}bg-rose-500/10 text-rose-400 border-rose-500/30{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-zinc-800/80 bg-zinc-900/30 py-6 text-center text-xs text-zinc-500 font-mono">
+        Homelab Uplink Monitor • Admin Control Center • ULID Keys • Infinite History
+    </footer>
+</body>
+</html>

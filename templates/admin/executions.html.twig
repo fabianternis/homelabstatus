@@ -1,0 +1,87 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Executions History{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">Executions History</h1>
+            <p class="text-xs text-zinc-400 mt-1">Infinite historical execution logs with full JSON telemetry data.</p>
+        </div>
+
+        <!-- Filter by Check -->
+        <form method="GET" class="flex items-center gap-2">
+            <select name="check_id" onchange="this.form.submit()" class="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="">All Checks ({{ pagination.total }} total)</option>
+                {% for c in checks %}
+                    <option value="{{ c.id }}" {% if selectedCheckId == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                        <th class="pb-3">Execution ID</th>
+                        <th class="pb-3">Check ID</th>
+                        <th class="pb-3">Status</th>
+                        <th class="pb-3">Avg Latency</th>
+                        <th class="pb-3">Packet Loss</th>
+                        <th class="pb-3">Jitter</th>
+                        <th class="pb-3">Execution Duration</th>
+                        <th class="pb-3 text-right">Timestamp (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-800/50">
+                    {% for exec in pagination.items %}
+                        <tr class="hover:bg-zinc-800/20 font-mono">
+                            <td class="py-3 text-zinc-400 font-semibold">{{ exec.id }}</td>
+                            <td class="py-3 text-zinc-300">{{ exec.checkId }}</td>
+                            <td class="py-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if exec.status.value == 'excellent' or exec.status.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                    {{ exec.status.value }}
+                                </span>
+                            </td>
+                            <td class="py-3 text-white font-bold">
+                                {{ exec.resultData.avg_latency_ms is defined and exec.resultData.avg_latency_ms is not null ? (exec.resultData.avg_latency_ms|round(1) ~ ' ms') : '-' }}
+                            </td>
+                            <td class="py-3 {% if (exec.resultData.packet_loss_percent|default(0)) == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                {{ exec.resultData.packet_loss_percent|default(0)|round(0) }}%
+                            </td>
+                            <td class="py-3 text-zinc-400">
+                                {{ exec.resultData.jitter_ms is defined and exec.resultData.jitter_ms is not null ? ('±' ~ exec.resultData.jitter_ms|round(1) ~ ' ms') : '-' }}
+                            </td>
+                            <td class="py-3 text-zinc-400">{{ exec.durationMs|round(1) }} ms</td>
+                            <td class="py-3 text-right text-zinc-500">{{ exec.executedAt }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="py-8 text-center text-zinc-500">No execution logs found.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Footer -->
+        {% if pagination.total_pages > 1 %}
+            <div class="pt-6 border-t border-zinc-800 flex items-center justify-between text-xs font-mono">
+                <span class="text-zinc-500">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} records)</span>
+                <div class="flex items-center gap-2">
+                    {% if pagination.page > 1 %}
+                        <a href="?page={{ pagination.page - 1 }}{% if selectedCheckId %}&check_id={{ selectedCheckId }}{% endif %}" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition">Previous</a>
+                    {% endif %}
+                    {% if pagination.page < pagination.total_pages %}
+                        <a href="?page={{ pagination.page + 1 }}{% if selectedCheckId %}&check_id={{ selectedCheckId }}{% endif %}" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

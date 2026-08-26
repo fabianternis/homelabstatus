@@ -1,0 +1,42 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-extrabold text-white">System Audit & Activity Trail</h1>
+        <p class="text-xs text-zinc-400 mt-1">Immutable trail of checks creation, updates, status transitions, and deletions.</p>
+    </div>
+
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="space-y-3">
+            {% for log in logs %}
+                <div class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 bg-zinc-800 font-mono text-emerald-400 rounded text-xs uppercase font-bold">{{ log.event }}</span>
+                            <span class="text-xs font-bold text-white">{{ log.description }}</span>
+                        </div>
+                        <span class="text-xs font-mono text-zinc-500">{{ log.createdAt }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-4 text-[11px] font-mono text-zinc-500">
+                        <span>ULID: {{ log.id }}</span>
+                        {% if log.subjectId %}<span>Subject: {{ log.subjectId }}</span>{% endif %}
+                        <span>Log: {{ log.logName }}</span>
+                    </div>
+
+                    {% if log.properties %}
+                        <div class="mt-2 pt-2 border-t border-zinc-800/60">
+                            <pre class="text-[10px] font-mono text-zinc-400 bg-zinc-900/80 p-2.5 rounded-lg overflow-x-auto">{{ log.properties|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="text-zinc-500 text-xs py-8 text-center">No audit logs recorded yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -118,7 +118,7 @@ class HttpChecker implements CheckerInterface
             $errno = curl_errno($ch);
 
             curl_multi_remove_handle($mh, $ch);
-            curl_close($ch);
+            
 
             $execution = $this->evaluateResult($check, $url, $info, $rawResponse, $error, $errno, $now);
             $executions[$checkId] = $execution;

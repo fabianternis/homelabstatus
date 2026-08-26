@@ -31,13 +31,27 @@ php bin/console uplink:ping --json    # Raw JSON snapshot
 php bin/console check:http            # Probe HTTP endpoints & check SSL certs
 
 # Check & Audit Administration
-php bin/console check:list            # List checks (supports --type=http|uplink, --trashed)
-php bin/console check:create <name> <host/url> [--type=http|uplink] [--interval=60] [--group="..."]
+php bin/console check:list            # List checks (supports --type=http|uplink|s3|database|ssh|dns|dhcp, --trashed)
+php bin/console check:create <name> <host/url> [--type=http|uplink|s3|database|ssh|dns|dhcp] [--interval=60] [--group="..."]
 php bin/console check:toggle <id|slug>
 php bin/console check:delete <id|slug> [--force]
 php bin/console check:restore <id|slug>
 php bin/console audit:list            # View recent audit trail
 ```
+
+### Supported Check Types
+
+| Type | Aliases | Description |
+|------|---------|-------------|
+| `uplink` | — | ICMP ping probes (SystemPingRunner) |
+| `http` | `https`, `web` | HTTP/HTTPS endpoints with SSL inspection (HttpChecker) |
+| `s3` | `bucket`, `object_storage` | S3-compatible object storage — AWS, Hetzner, Cloudflare R2, custom (S3BucketChecker) |
+| `database` | `db`, `mysql`, `postgres`, `redis`, `mariadb` | Database host connectivity + optional query validation (DatabaseChecker) |
+| `ssh` | `sftp` | SSH TCP connect + banner inspection without authentication (SshChecker) |
+| `dns` | `dns_server`, `resolver` | Local/remote DNS server — raw UDP/TCP query with RFC 1035 packet (DnsChecker) |
+| `dhcp` | — | DHCP DISCOVER/OFFER check via raw socket; falls back to UDP probe if unprivileged (DhcpChecker) |
+
+
 
 ---
 

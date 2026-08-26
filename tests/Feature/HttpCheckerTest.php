@@ -12,7 +12,12 @@ use App\Repository\CheckExecutionRepository;
 use App\Repository\CheckRepository;
 use App\Service\Audit\AuditLogger;
 use App\Service\Checker\CheckManager;
+use App\Service\Checker\DatabaseChecker;
+use App\Service\Checker\DhcpChecker;
+use App\Service\Checker\DnsChecker;
 use App\Service\Checker\HttpChecker;
+use App\Service\Checker\S3BucketChecker;
+use App\Service\Checker\SshChecker;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Ulid;
 
@@ -37,9 +42,15 @@ class HttpCheckerTest extends TestCase
             $this->checkRepo,
             $this->executionRepo,
             $auditLogger,
-            $this->httpChecker
+            $this->httpChecker,
+            new S3BucketChecker(),
+            new DatabaseChecker(),
+            new SshChecker(),
+            new DnsChecker(),
+            new DhcpChecker()
         );
     }
+
 
     public function testSupportsHttpTypes(): void
     {

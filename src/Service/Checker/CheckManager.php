@@ -22,9 +22,21 @@ class CheckManager
         private readonly CheckRepository $checkRepository,
         private readonly CheckExecutionRepository $executionRepository,
         private readonly AuditLogger $auditLogger,
-        HttpChecker $httpChecker
+        HttpChecker $httpChecker,
+        S3BucketChecker $s3BucketChecker,
+        DatabaseChecker $databaseChecker,
+        SshChecker $sshChecker,
+        DnsChecker $dnsChecker,
+        DhcpChecker $dhcpChecker
     ) {
-        $this->checkers = [$httpChecker];
+        $this->checkers = [
+            $httpChecker,
+            $s3BucketChecker,
+            $databaseChecker,
+            $sshChecker,
+            $dnsChecker,
+            $dhcpChecker,
+        ];
     }
 
     public function registerChecker(CheckerInterface $checker): void
@@ -70,15 +82,13 @@ class CheckManager
                 // 1. Record execution
                 $this->executionRepository->record($execution);
 
-                // 2. Update check
-                $metrics = [
-                    'duration_ms' => $execution->durationMs,
-                    'http_code' => $execution->resultData['http_code'] ?? null,
-                    'ttfb_ms' => $execution->resultData['ttfb_ms'] ?? null,
-                    'ssl_days_remaining' => $execution->resultData['ssl_days_remaining'] ?? null,
-                    'ssl_valid' => $execution->resultData['ssl_valid'] ?? null,
-                ];
+                // 2. Update check — build a generic metrics snapshot from the execution result
+                $metrics = array_merge(
+                    ['duration_ms' => $execution->durationMs],
+                    $execution->resultData
+                );
                 $this->checkRepository->updateExecutionResult($check->id, $execution->status, $metrics, $now);
+
 
                 // 3. Audit log if state changed
                 if ($oldStatus !== UplinkState::UNKNOWN && $oldStatus !== $execution->status) {

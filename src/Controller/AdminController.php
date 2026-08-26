@@ -81,14 +81,14 @@ class AdminController extends AbstractController
             $groupName = trim((string)$request->request->get('group_name', 'Uplink Probes'));
             $description = trim((string)$request->request->get('description', ''));
             $provider = trim((string)$request->request->get('provider', 'Custom'));
-            $country = trim((string)$request->request->get('country', 'Global'));
-            $packets = max(1, min(10, (int)$request->request->get('packets', 2)));
-            $timeout = max(1, min(10, (int)$request->request->get('timeout', 2)));
+            $timeout = max(1, min(60, (int)$request->request->get('timeout', 5)));
             $interval = max(5, (int)$request->request->get('interval', 60));
             $sortOrder = (int)$request->request->get('sort_order', 10);
             $isEnabled = (bool)$request->request->get('is_enabled', true);
 
-            if ($name !== '' && $host !== '') {
+            if ($name !== '') {
+                $config = $this->buildCheckConfig($type, $host, $provider, $timeout, $request);
+
                 $check = new Check(
                     id: Ulid::generate(),
                     name: $name,
@@ -98,13 +98,7 @@ class AdminController extends AbstractController
                     description: $description,
                     isEnabled: $isEnabled,
                     status: UplinkState::UNKNOWN,
-                    config: [
-                        'host' => $host,
-                        'packets' => $packets,
-                        'timeout' => $timeout,
-                        'provider' => $provider,
-                        'country' => $country,
-                    ],
+                    config: $config,
                     interval: $interval,
                     sortOrder: $sortOrder
                 );
@@ -152,13 +146,11 @@ class AdminController extends AbstractController
             $check->sortOrder = (int)$request->request->get('sort_order', $check->sortOrder);
             $check->isEnabled = (bool)$request->request->get('is_enabled');
 
-            $config = $check->config;
-            $config['host'] = trim((string)$request->request->get('host', $config['host'] ?? '127.0.0.1'));
-            $config['provider'] = trim((string)$request->request->get('provider', $config['provider'] ?? ''));
-            $config['country'] = trim((string)$request->request->get('country', $config['country'] ?? 'Global'));
-            $config['packets'] = max(1, min(10, (int)$request->request->get('packets', 2)));
-            $config['timeout'] = max(1, min(10, (int)$request->request->get('timeout', 2)));
-            $check->config = $config;
+            $host = trim((string)$request->request->get('host', $check->config['host'] ?? $check->config['url'] ?? $check->config['server'] ?? ''));
+            $provider = trim((string)$request->request->get('provider', $check->config['provider'] ?? ''));
+            $timeout = max(1, min(60, (int)$request->request->get('timeout', $check->config['timeout'] ?? 5)));
+
+            $check->config = $this->buildCheckConfig($check->type, $host, $provider, $timeout, $request, $check->config);
 
             $this->checkRepository->save($check);
 
@@ -369,5 +361,115 @@ class AdminController extends AbstractController
             'logs' => $logs,
             'limit' => $limit,
         ]);
+    }
+
+    /**
+     * Builds a type-specific config array from the submitted form request.
+     * $existing is used during edit to preserve fields not present in the form.
+     */
+    private function buildCheckConfig(
+        string $type,
+        string $host,
+        string $provider,
+        int $timeout,
+        Request $request,
+        array $existing = []
+    ): array {
+        $packets = max(1, min(10, (int)$request->request->get('packets', $existing['packets'] ?? 2)));
+        $country = trim((string)$request->request->get('country', $existing['country'] ?? 'Global'));
+
+        // HTTP / HTTPS / Web
+        if (in_array($type, ['http', 'https', 'web'], true)) {
+            return [
+                'url' => $host,
+                'host' => $host,
+                'method' => strtoupper(trim((string)$request->request->get('method', $existing['method'] ?? 'GET'))),
+                'expected_status' => (int)$request->request->get('expected_status', $existing['expected_status'] ?? 200),
+                'keyword' => trim((string)$request->request->get('keyword', $existing['keyword'] ?? '')),
+                'check_ssl' => (bool)$request->request->get('check_ssl', $existing['check_ssl'] ?? true),
+                'timeout' => $timeout,
+                'provider' => $provider,
+            ];
+        }
+
+        // S3 / Object Storage
+        if (in_array($type, ['s3', 'bucket', 'object_storage'], true)) {
+            return [
+                'provider' => strtolower(trim((string)$request->request->get('s3_provider', $existing['s3_provider'] ?? 'aws'))),
+                'bucket' => trim((string)$request->request->get('s3_bucket', $existing['bucket'] ?? '')),
+                'region' => trim((string)$request->request->get('s3_region', $existing['region'] ?? 'us-east-1')),
+                'endpoint' => trim((string)$request->request->get('s3_endpoint', $existing['endpoint'] ?? '')),
+                'access_key' => trim((string)$request->request->get('s3_access_key', $existing['access_key'] ?? '')),
+                'secret_key' => trim((string)$request->request->get('s3_secret_key', $existing['secret_key'] ?? '')),
+                'object_key' => trim((string)$request->request->get('s3_object_key', $existing['object_key'] ?? '')),
+                'check_public_access' => (bool)$request->request->get('s3_check_public_access', $existing['check_public_access'] ?? false),
+                'timeout' => $timeout,
+                's3_provider' => strtolower(trim((string)$request->request->get('s3_provider', $existing['s3_provider'] ?? 'aws'))),
+            ];
+        }
+
+        // Database (MySQL, MariaDB, Postgres, Redis, SQLite)
+        if (in_array($type, ['database', 'db', 'mysql', 'postgres', 'mariadb', 'redis', 'sqlite'], true)) {
+            $dbPort = $request->request->get('db_port', '');
+            return [
+                'driver' => strtolower(trim((string)$request->request->get('db_driver', $existing['driver'] ?? 'mysql'))),
+                'host' => $host,
+                'port' => $dbPort !== '' ? (int)$dbPort : ($existing['port'] ?? null),
+                'database' => trim((string)$request->request->get('db_database', $existing['database'] ?? '')),
+                'username' => trim((string)$request->request->get('db_username', $existing['username'] ?? '')),
+                'password' => trim((string)$request->request->get('db_password', $existing['password'] ?? '')),
+                'query' => trim((string)$request->request->get('db_query', $existing['query'] ?? '')),
+                'expected_result' => trim((string)$request->request->get('db_expected_result', $existing['expected_result'] ?? '')),
+                'timeout' => $timeout,
+                'provider' => $provider,
+            ];
+        }
+
+        // SSH / SFTP
+        if (in_array($type, ['ssh', 'sftp'], true)) {
+            return [
+                'host' => $host,
+                'port' => (int)$request->request->get('ssh_port', $existing['port'] ?? 22),
+                'timeout' => $timeout,
+                'check_banner' => (bool)$request->request->get('ssh_check_banner', $existing['check_banner'] ?? true),
+                'expected_banner_contains' => trim((string)$request->request->get('ssh_expected_banner', $existing['expected_banner_contains'] ?? '')),
+                'provider' => $provider,
+            ];
+        }
+
+        // DNS
+        if (in_array($type, ['dns', 'dns_server', 'resolver'], true)) {
+            return [
+                'server' => $host,
+                'port' => (int)$request->request->get('dns_port', $existing['port'] ?? 53),
+                'protocol' => strtolower(trim((string)$request->request->get('dns_protocol', $existing['protocol'] ?? 'udp'))),
+                'query_name' => trim((string)$request->request->get('dns_query_name', $existing['query_name'] ?? 'cloudflare.com')),
+                'query_type' => strtoupper(trim((string)$request->request->get('dns_query_type', $existing['query_type'] ?? 'A'))),
+                'expected_answer' => trim((string)$request->request->get('dns_expected_answer', $existing['expected_answer'] ?? '')),
+                'timeout' => $timeout,
+                'provider' => $provider,
+            ];
+        }
+
+        // DHCP
+        if ($type === 'dhcp') {
+            return [
+                'server' => $host,
+                'port' => (int)$request->request->get('dhcp_port', $existing['port'] ?? 67),
+                'timeout' => $timeout,
+                'client_mac' => trim((string)$request->request->get('dhcp_client_mac', $existing['client_mac'] ?? '')),
+                'expected_server_id' => trim((string)$request->request->get('dhcp_expected_server_id', $existing['expected_server_id'] ?? '')),
+                'provider' => $provider,
+            ];
+        }
+
+        // Default / uplink / icmp_ping
+        return [
+            'host' => $host,
+            'packets' => $packets,
+            'timeout' => $timeout,
+            'provider' => $provider,
+            'country' => $country,
+        ];
     }
 }

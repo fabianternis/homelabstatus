@@ -30,7 +30,7 @@ CREATE TABLE checks (
     id TEXT PRIMARY KEY,                       -- ULID (26 chars)
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL,                        -- 'uplink', 'http', 'icmp_ping', 'tcp', 'dns'
+    type TEXT NOT NULL,                        -- 'uplink', 'http', 'icmp_ping', 'tcp', 'dns', 'dns_server', 'resolver', 's3', 'bucket', 'object_storage', 'database', 'db', 'mysql', 'postgres', 'redis', 'mariadb', 'ssh', 'sftp', 'dhcp'
     group_name TEXT NOT NULL DEFAULT 'Uplink Probes',
     description TEXT,
     is_enabled INTEGER NOT NULL DEFAULT 1,
@@ -81,8 +81,13 @@ CREATE TABLE audit_logs (
 ### Modular Check Runners (`src/Service/Checker/`)
 - `CheckerInterface`: Defines `supports(string $type)`, `run(Check $check)`, and `runMulti(array $checks)`.
 - `HttpChecker`: Implements parallel `curl_multi` async execution. Captures HTTP response codes, TTFB (Time To First Byte), total response time, DNS lookup time, TCP connect time, TLS/SSL certificate expiry countdown & issuer, and keyword presence verification.
+- `S3BucketChecker`: Checks S3-compatible object storage buckets (AWS, Hetzner, Cloudflare R2, custom endpoint) using AWS Signature Version 4 signed HEAD requests via `curl_multi`. Distinguishes 403 (reachable/forbidden) from 404 (missing) and connection errors.
+- `DatabaseChecker`: TCP port probe followed by a real PDO connection (MySQL, MariaDB, PostgreSQL, SQLite) or raw Redis socket (PING/INFO). Supports optional validation queries with `expected_result` matching.
+- `SshChecker`: Opens a raw TCP socket to the SSH port and reads the SSH protocol banner (SSH-2.0-OpenSSH_... format). No authentication is performed. Parses protocol version, software version, and optionally matches a banner substring.
+- `DnsChecker`: Sends raw RFC 1035 binary DNS queries (UDP or TCP) to a specified name server. Parses RCODE, ANCOUNT, and A/AAAA answer records. Supports optional `expected_answer` IP matching.
+- `DhcpChecker`: Sends a RFC 2131 DHCP DISCOVER packet via raw UDP socket (`socket_create` + `SO_BROADCAST`). Falls back to UDP reachability probe if binding port 68 fails (requires elevated privileges for full mode). Parses the OFFER response for yiaddr and server identifier.
 - `SystemPingRunner`: Executes non-blocking concurrent ICMP pings via system `ping` binary across all active uplink targets in `< 1s`.
-- `CheckManager`: Routes check execution by `type` and handles execution recording, metric caching, and audit logging on status transitions.
+- `CheckManager`: Routes check execution by `type` using all registered checkers, records executions, caches generic metrics in `last_metrics`, and logs status transitions to `audit_logs`.
 
 ### Dynamic Localization (`src/Service/Locale/LocaleProvider.php`)
 - **Runtime Discovery**: Scans `translations/` for `messages.{locale}.*` (`yaml`, `json`, `php`).

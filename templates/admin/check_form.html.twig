@@ -7,56 +7,77 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-extrabold text-white">{{ isEdit ? 'Edit Check: ' ~ check.name : 'Create New Monitored Check' }}</h1>
-            <p class="text-xs text-zinc-400 mt-1">Configure probe settings, target IP/URL, and classification criteria.</p>
+            <p class="text-xs text-zinc-400 mt-1">Configure probe settings, target, and classification criteria.</p>
         </div>
-        <a href="/admin/checks" class="text-xs font-mono text-zinc-400 hover:text-white">← Back to Checks</a>
+        <a href="/admin/checks" class="text-xs font-mono text-zinc-400 hover:text-white">&larr; Back to Checks</a>
     </div>
 
     <form method="POST" class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 space-y-5">
         <div class="space-y-4">
+
+            {# --- Name --- #}
             <div>
                 <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Check Name</label>
-                <input type="text" name="name" value="{{ check ? check.name : '' }}" required placeholder="e.g. Cloudflare Web Portal or Primary Gateway" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <input type="text" name="name" value="{{ check ? check.name : '' }}" required
+                    placeholder="e.g. Primary MySQL or S3 Media Bucket"
+                    class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
 
+            {# --- Type + Host --- #}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Check Type</label>
-                    <select name="type" id="check_type" onchange="toggleTypeFields(this.value)" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                        <option value="uplink" {% if not check or check.type == 'uplink' %}selected{% endif %}>uplink (Multi-Packet Anycast Ping)</option>
-                        <option value="http" {% if check and check.type == 'http' %}selected{% endif %}>http / https (Web Endpoint & SSL)</option>
-                        <option value="icmp_ping" {% if check and check.type == 'icmp_ping' %}selected{% endif %}>icmp_ping (Single Host Ping)</option>
+                    <select name="type" id="check_type" onchange="toggleTypeFields(this.value)"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                        <option value="uplink"       {% if not check or check.type == 'uplink' %}selected{% endif %}>uplink &mdash; Multi-Packet Anycast Ping</option>
+                        <option value="icmp_ping"    {% if check and check.type == 'icmp_ping' %}selected{% endif %}>icmp_ping &mdash; Single Host Ping</option>
+                        <option value="http"         {% if check and check.type in ['http','https','web'] %}selected{% endif %}>http / https &mdash; Web Endpoint &amp; SSL</option>
+                        <option value="s3"           {% if check and check.type in ['s3','bucket','object_storage'] %}selected{% endif %}>s3 &mdash; Object Storage (AWS / Hetzner / R2)</option>
+                        <option value="database"     {% if check and check.type in ['database','db','mysql','postgres','mariadb','redis'] %}selected{% endif %}>database &mdash; MySQL / Postgres / Redis / SQLite</option>
+                        <option value="ssh"          {% if check and check.type in ['ssh','sftp'] %}selected{% endif %}>ssh / sftp &mdash; Banner &amp; TCP Reachability</option>
+                        <option value="dns"          {% if check and check.type in ['dns','dns_server','resolver'] %}selected{% endif %}>dns &mdash; Local / Remote DNS Server</option>
+                        <option value="dhcp"         {% if check and check.type == 'dhcp' %}selected{% endif %}>dhcp &mdash; DHCP Server Discover / Offer</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Target Host / IP / URL</label>
-                    <input type="text" name="host" value="{{ check ? (check.config.url|default(check.config.host|default(''))) : '' }}" required placeholder="e.g. 1.1.1.1 or https://example.com" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="host" id="host_field"
+                        value="{{ check ? (check.config.url|default(check.config.host|default(check.config.server|default('')))) : '' }}"
+                        required placeholder="e.g. 1.1.1.1 or https://example.com"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
             </div>
 
+            {# --- Group + Provider --- #}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Group Name</label>
-                    <input type="text" name="group_name" value="{{ check ? check.groupName : 'Web Endpoints' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="group_name" value="{{ check ? check.groupName : 'Web Endpoints' }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Provider / Label</label>
-                    <input type="text" name="provider" value="{{ check ? check.config.provider|default('Cloudflare') : 'Cloudflare' }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="provider" value="{{ check ? check.config.provider|default('Custom') : 'Custom' }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
             </div>
 
-            <!-- HTTP-Specific Fields -->
-            <div id="http_fields" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 {% if not check or check.type != 'http' %}hidden{% endif %}">
-                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase">HTTP Configuration</div>
+            {# ================================================================= #}
+            {# HTTP-Specific Fields                                               #}
+            {# ================================================================= #}
+            <div id="fields_http" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">HTTP / HTTPS Configuration</div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected HTTP Status Code</label>
-                        <input type="number" name="expected_status" value="{{ check ? check.config.expected_status|default(200) : 200 }}" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                        <input type="number" name="expected_status"
+                            value="{{ check ? check.config.expected_status|default(200) : 200 }}"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-zinc-300 mb-1.5">HTTP Method</label>
                         <select name="method" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                            <option value="GET" {% if not check or check.config.method|default('GET') == 'GET' %}selected{% endif %}>GET</option>
+                            <option value="GET"  {% if not check or check.config.method|default('GET') == 'GET' %}selected{% endif %}>GET</option>
                             <option value="HEAD" {% if check and check.config.method|default('') == 'HEAD' %}selected{% endif %}>HEAD</option>
                             <option value="POST" {% if check and check.config.method|default('') == 'POST' %}selected{% endif %}>POST</option>
                         </select>
@@ -64,44 +85,289 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Keyword Match in Response (Optional)</label>
-                    <input type="text" name="keyword" value="{{ check ? check.config.keyword|default('') : '' }}" placeholder="String required in response body" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="text" name="keyword" value="{{ check ? check.config.keyword|default('') : '' }}"
+                        placeholder="String required in response body"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="check_ssl" name="check_ssl" value="1"
+                        {% if not check or check.config.check_ssl|default(true) %}checked{% endif %}
+                        class="rounded bg-zinc-950 border-zinc-800 text-emerald-500 focus:ring-emerald-500">
+                    <label for="check_ssl" class="text-xs font-semibold text-zinc-200">Verify SSL Certificate</label>
                 </div>
             </div>
 
-            <!-- General / Timing Fields -->
+            {# ================================================================= #}
+            {# S3 Object Storage Fields                                           #}
+            {# ================================================================= #}
+            <div id="fields_s3" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">S3 / Object Storage Configuration</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Provider</label>
+                        <select name="s3_provider" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                            <option value="aws"     {% if check and check.config.s3_provider|default('aws') == 'aws' %}selected{% endif %}>AWS S3</option>
+                            <option value="hetzner" {% if check and check.config.s3_provider|default('') == 'hetzner' %}selected{% endif %}>Hetzner Object Storage</option>
+                            <option value="r2"      {% if check and check.config.s3_provider|default('') == 'r2' %}selected{% endif %}>Cloudflare R2</option>
+                            <option value="custom"  {% if check and check.config.s3_provider|default('') == 'custom' %}selected{% endif %}>Custom / Self-Hosted</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Bucket Name</label>
+                        <input type="text" name="s3_bucket" value="{{ check ? check.config.bucket|default('') : '' }}"
+                            placeholder="my-bucket"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Region</label>
+                        <input type="text" name="s3_region" value="{{ check ? check.config.region|default('us-east-1') : 'us-east-1' }}"
+                            placeholder="us-east-1 / eu-central-1 / auto"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Custom Endpoint (R2 / custom)</label>
+                        <input type="text" name="s3_endpoint" value="{{ check ? check.config.endpoint|default('') : '' }}"
+                            placeholder="https://&lt;account&gt;.r2.cloudflarestorage.com"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Access Key ID</label>
+                        <input type="text" name="s3_access_key" value="{{ check ? check.config.access_key|default('') : '' }}"
+                            placeholder="AKIAIOSFODNN7EXAMPLE"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Secret Access Key</label>
+                        <input type="password" name="s3_secret_key" value="{{ check ? check.config.secret_key|default('') : '' }}"
+                            placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Object Key to Probe (Optional)</label>
+                    <input type="text" name="s3_object_key" value="{{ check ? check.config.object_key|default('') : '' }}"
+                        placeholder="path/to/file.txt — leave blank to probe bucket root"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="s3_public" name="s3_check_public_access" value="1"
+                        {% if check and check.config.check_public_access|default(false) %}checked{% endif %}
+                        class="rounded bg-zinc-950 border-zinc-800 text-emerald-500 focus:ring-emerald-500">
+                    <label for="s3_public" class="text-xs font-semibold text-zinc-200">Check public access (unsigned request, no credentials)</label>
+                </div>
+            </div>
+
+            {# ================================================================= #}
+            {# Database Fields                                                    #}
+            {# ================================================================= #}
+            <div id="fields_database" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">Database Configuration</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Driver</label>
+                        <select name="db_driver" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                            <option value="mysql"    {% if check and check.config.driver|default('mysql') == 'mysql' %}selected{% endif %}>MySQL</option>
+                            <option value="mariadb"  {% if check and check.config.driver|default('') == 'mariadb' %}selected{% endif %}>MariaDB</option>
+                            <option value="postgres" {% if check and check.config.driver|default('') == 'postgres' %}selected{% endif %}>PostgreSQL</option>
+                            <option value="redis"    {% if check and check.config.driver|default('') == 'redis' %}selected{% endif %}>Redis</option>
+                            <option value="sqlite"   {% if check and check.config.driver|default('') == 'sqlite' %}selected{% endif %}>SQLite (local file)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Port (leave blank for default)</label>
+                        <input type="number" name="db_port" value="{{ check ? check.config.port|default('') : '' }}"
+                            placeholder="3306 / 5432 / 6379"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Database / Schema Name</label>
+                        <input type="text" name="db_database" value="{{ check ? check.config.database|default('') : '' }}"
+                            placeholder="my_database"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Username</label>
+                        <input type="text" name="db_username" value="{{ check ? check.config.username|default('') : '' }}"
+                            placeholder="db_user"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Password</label>
+                    <input type="password" name="db_password" value="{{ check ? check.config.password|default('') : '' }}"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Validation Query (Optional)</label>
+                        <input type="text" name="db_query" value="{{ check ? check.config.query|default('') : '' }}"
+                            placeholder="SELECT 1"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected Query Result (Optional)</label>
+                        <input type="text" name="db_expected_result" value="{{ check ? check.config.expected_result|default('') : '' }}"
+                            placeholder="1"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            {# ================================================================= #}
+            {# SSH Fields                                                         #}
+            {# ================================================================= #}
+            <div id="fields_ssh" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">SSH / SFTP Configuration</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Port</label>
+                        <input type="number" name="ssh_port" value="{{ check ? check.config.port|default(22) : 22 }}"
+                            min="1" max="65535"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected Banner Contains (Optional)</label>
+                        <input type="text" name="ssh_expected_banner" value="{{ check ? check.config.expected_banner_contains|default('') : '' }}"
+                            placeholder="OpenSSH"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="ssh_check_banner" name="ssh_check_banner" value="1"
+                        {% if not check or check.config.check_banner|default(true) %}checked{% endif %}
+                        class="rounded bg-zinc-950 border-zinc-800 text-emerald-500 focus:ring-emerald-500">
+                    <label for="ssh_check_banner" class="text-xs font-semibold text-zinc-200">Read and validate SSH banner (recommended)</label>
+                </div>
+            </div>
+
+            {# ================================================================= #}
+            {# DNS Fields                                                         #}
+            {# ================================================================= #}
+            <div id="fields_dns" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">DNS Server Configuration</div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Port</label>
+                        <input type="number" name="dns_port" value="{{ check ? check.config.port|default(53) : 53 }}"
+                            min="1" max="65535"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Protocol</label>
+                        <select name="dns_protocol" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                            <option value="udp" {% if not check or check.config.protocol|default('udp') == 'udp' %}selected{% endif %}>UDP (default)</option>
+                            <option value="tcp" {% if check and check.config.protocol|default('') == 'tcp' %}selected{% endif %}>TCP</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Query Type</label>
+                        <select name="dns_query_type" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                            <option value="A"    {% if not check or check.config.query_type|default('A') == 'A' %}selected{% endif %}>A (IPv4)</option>
+                            <option value="AAAA" {% if check and check.config.query_type|default('') == 'AAAA' %}selected{% endif %}>AAAA (IPv6)</option>
+                            <option value="MX"   {% if check and check.config.query_type|default('') == 'MX' %}selected{% endif %}>MX</option>
+                            <option value="TXT"  {% if check and check.config.query_type|default('') == 'TXT' %}selected{% endif %}>TXT</option>
+                            <option value="NS"   {% if check and check.config.query_type|default('') == 'NS' %}selected{% endif %}>NS</option>
+                            <option value="CNAME"{% if check and check.config.query_type|default('') == 'CNAME' %}selected{% endif %}>CNAME</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Domain to Resolve</label>
+                        <input type="text" name="dns_query_name" value="{{ check ? check.config.query_name|default('cloudflare.com') : 'cloudflare.com' }}"
+                            placeholder="cloudflare.com"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected Answer IP (Optional)</label>
+                        <input type="text" name="dns_expected_answer" value="{{ check ? check.config.expected_answer|default('') : '' }}"
+                            placeholder="1.1.1.1"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+            </div>
+
+            {# ================================================================= #}
+            {# DHCP Fields                                                        #}
+            {# ================================================================= #}
+            <div id="fields_dhcp" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl space-y-4 hidden">
+                <div class="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-widest">DHCP Server Configuration</div>
+                <div class="p-3 bg-amber-950/40 border border-amber-800/60 rounded-lg text-xs text-amber-300">
+                    Full DHCP DISCOVER/OFFER validation requires the process to bind to UDP port 68 (root/CAP_NET_BIND_SERVICE).
+                    Without elevated privileges, the checker falls back to UDP port reachability only.
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">DHCP Server Port</label>
+                        <input type="number" name="dhcp_port" value="{{ check ? check.config.port|default(67) : 67 }}"
+                            min="1" max="65535"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Expected Server Identifier IP (Optional)</label>
+                        <input type="text" name="dhcp_expected_server_id" value="{{ check ? check.config.expected_server_id|default('') : '' }}"
+                            placeholder="192.168.1.1"
+                            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Client MAC Address (Optional, random if blank)</label>
+                    <input type="text" name="dhcp_client_mac" value="{{ check ? check.config.client_mac|default('') : '' }}"
+                        placeholder="aa:bb:cc:dd:ee:ff"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                </div>
+            </div>
+
+            {# ================================================================= #}
+            {# General / Timing Fields                                            #}
+            {# ================================================================= #}
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Interval (sec)</label>
-                    <input type="number" name="interval" min="5" max="86400" value="{{ check ? check.interval : 60 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" name="interval" min="5" max="86400" value="{{ check ? check.interval : 60 }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Packets (Ping)</label>
-                    <input type="number" name="packets" min="1" max="10" value="{{ check ? check.config.packets|default(2) : 2 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" name="packets" min="1" max="10" value="{{ check ? check.config.packets|default(2) : 2 }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Timeout (sec)</label>
-                    <input type="number" name="timeout" min="1" max="30" value="{{ check ? check.config.timeout|default(5) : 5 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" name="timeout" min="1" max="30" value="{{ check ? check.config.timeout|default(5) : 5 }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Sort Order</label>
-                    <input type="number" name="sort_order" value="{{ check ? check.sortOrder : 10 }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <input type="number" name="sort_order" value="{{ check ? check.sortOrder : 10 }}"
+                        class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Description (Optional)</label>
-                <textarea name="description" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">{{ check ? check.description : '' }}</textarea>
+                <textarea name="description" rows="2"
+                    class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-500">{{ check ? check.description : '' }}</textarea>
             </div>
 
             <div class="flex items-center gap-2 pt-2">
-                <input type="checkbox" id="is_enabled" name="is_enabled" value="1" {% if not check or check.isEnabled %}checked{% endif %} class="rounded bg-zinc-950 border-zinc-800 text-emerald-500 focus:ring-emerald-500">
+                <input type="checkbox" id="is_enabled" name="is_enabled" value="1"
+                    {% if not check or check.isEnabled %}checked{% endif %}
+                    class="rounded bg-zinc-950 border-zinc-800 text-emerald-500 focus:ring-emerald-500">
                 <label for="is_enabled" class="text-xs font-semibold text-zinc-200">Enable check immediately</label>
             </div>
         </div>
 
         <div class="pt-4 border-t border-zinc-800 flex items-center justify-between">
             <a href="/admin/checks" class="text-xs font-semibold text-zinc-400 hover:text-white">Cancel</a>
-            <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-950">
+            <button type="submit"
+                class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-950">
                 {{ isEdit ? 'Save Changes' : 'Create Check' }}
             </button>
         </div>
@@ -109,13 +375,72 @@
 </div>
 
 <script>
+    const TYPE_PANELS = {
+        'http':     'fields_http',
+        'https':    'fields_http',
+        'web':      'fields_http',
+        's3':       'fields_s3',
+        'bucket':   'fields_s3',
+        'object_storage': 'fields_s3',
+        'database': 'fields_database',
+        'db':       'fields_database',
+        'mysql':    'fields_database',
+        'postgres': 'fields_database',
+        'mariadb':  'fields_database',
+        'redis':    'fields_database',
+        'sqlite':   'fields_database',
+        'ssh':      'fields_ssh',
+        'sftp':     'fields_ssh',
+        'dns':      'fields_dns',
+        'dns_server': 'fields_dns',
+        'resolver': 'fields_dns',
+        'dhcp':     'fields_dhcp',
+    };
+
+    const HOST_PLACEHOLDERS = {
+        'uplink':   'e.g. 1.1.1.1 (IP or hostname for ICMP ping)',
+        'icmp_ping':'e.g. 192.168.1.1 (IP or hostname)',
+        'http':     'e.g. https://example.com',
+        'https':    'e.g. https://example.com',
+        'web':      'e.g. https://example.com',
+        's3':       'Leave blank (endpoint resolved from provider/region)',
+        'bucket':   'Leave blank',
+        'object_storage': 'Leave blank',
+        'database': 'e.g. 192.168.1.10 or db.example.com',
+        'db':       'e.g. 192.168.1.10 or db.example.com',
+        'mysql':    'e.g. 192.168.1.10',
+        'postgres': 'e.g. 192.168.1.10',
+        'mariadb':  'e.g. 192.168.1.10',
+        'redis':    'e.g. 192.168.1.10',
+        'sqlite':   'e.g. /var/lib/db.sqlite',
+        'ssh':      'e.g. 192.168.1.10 or server.example.com',
+        'sftp':     'e.g. 192.168.1.10 or server.example.com',
+        'dns':      'e.g. 192.168.1.1 (IP of your DNS server)',
+        'dns_server': 'e.g. 192.168.1.1 (IP of your DNS server)',
+        'resolver': 'e.g. 192.168.1.1',
+        'dhcp':     'e.g. 192.168.1.1 (IP of your DHCP server)',
+    };
+
     function toggleTypeFields(type) {
-        const httpFields = document.getElementById('http_fields');
-        if (type === 'http' || type === 'https') {
-            httpFields.classList.remove('hidden');
-        } else {
-            httpFields.classList.add('hidden');
+        const allPanelIds = new Set(Object.values(TYPE_PANELS));
+        allPanelIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        const targetId = TYPE_PANELS[type];
+        if (targetId) {
+            const panel = document.getElementById(targetId);
+            if (panel) panel.classList.remove('hidden');
+        }
+
+        const hostField = document.getElementById('host_field');
+        if (hostField) {
+            hostField.placeholder = HOST_PLACEHOLDERS[type] || 'e.g. 1.1.1.1 or https://example.com';
         }
     }
+
+    // Init on page load
+    toggleTypeFields(document.getElementById('check_type').value);
 </script>
 {% endblock %}

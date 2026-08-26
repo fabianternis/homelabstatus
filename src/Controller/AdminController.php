@@ -272,6 +272,76 @@ class AdminController extends AbstractController
         return $this->redirectToRoute('admin_checks_index', ['filter' => 'trashed']);
     }
 
+    #[Route('/checks/bulk-action', name: 'admin_checks_bulk_action', methods: ['POST'])]
+    public function bulkAction(Request $request): Response
+    {
+        $action = trim((string)$request->request->get('action'));
+        $checkIds = (array)$request->request->all('check_ids');
+        $filter = (string)$request->request->get('filter', 'all');
+
+        if (empty($checkIds)) {
+            $this->addFlash('error', 'No checks were selected.');
+            return $this->redirectToRoute('admin_checks_index', ['filter' => $filter]);
+        }
+
+        $count = 0;
+        foreach ($checkIds as $id) {
+            $id = (string)$id;
+            $check = $this->checkRepository->findById($id, withTrashed: true);
+            if (!$check) continue;
+
+            match ($action) {
+                'enable' => (function() use ($check, &$count) {
+                    if (!$check->isEnabled) {
+                        $check->isEnabled = true;
+                        $this->checkRepository->save($check);
+                        $count++;
+                    }
+                })(),
+                'disable' => (function() use ($check, &$count) {
+                    if ($check->isEnabled) {
+                        $check->isEnabled = false;
+                        $this->checkRepository->save($check);
+                        $count++;
+                    }
+                })(),
+                'trash' => (function() use ($check, &$count) {
+                    if (!$check->isTrashed()) {
+                        $this->checkRepository->softDelete($check->id);
+                        $count++;
+                    }
+                })(),
+                'restore' => (function() use ($check, &$count) {
+                    if ($check->isTrashed()) {
+                        $this->checkRepository->restore($check->id);
+                        $count++;
+                    }
+                })(),
+                'force_delete' => (function() use ($check, &$count) {
+                    $this->checkRepository->forceDelete($check->id);
+                    $count++;
+                })(),
+                default => null,
+            };
+        }
+
+        if ($count > 0) {
+            $this->auditLogger->log(
+                event: 'bulk_' . $action,
+                description: "Executed bulk '{$action}' on {$count} checks",
+                subjectType: Check::class,
+                properties: ['action' => $action, 'count' => $count, 'check_ids' => $checkIds],
+                logName: 'admin'
+            );
+
+            $this->addFlash('success', "Bulk operation '{$action}' completed on {$count} checks.");
+        } else {
+            $this->addFlash('info', 'No checks were affected by the operation.');
+        }
+
+        return $this->redirectToRoute('admin_checks_index', ['filter' => $filter]);
+    }
+
     #[Route('/executions', name: 'admin_executions_index', methods: ['GET'])]
     public function executions(Request $request): Response
     {

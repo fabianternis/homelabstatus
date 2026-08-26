@@ -226,4 +226,74 @@ class AdminCheckApiController extends AbstractController
             'message' => "Check '{$check->name}' permanently deleted",
         ]);
     }
+
+    #[Route('/bulk', name: 'api_admin_checks_bulk', methods: ['POST'])]
+    public function bulk(Request $request): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true) ?: $request->request->all();
+        $action = (string)($payload['action'] ?? '');
+        $checkIds = (array)($payload['check_ids'] ?? []);
+
+        if (empty($checkIds) || $action === '') {
+            return $this->json([
+                'status' => 'error',
+                'message' => "Both 'action' and 'check_ids' array are required",
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $count = 0;
+        foreach ($checkIds as $id) {
+            $check = $this->checkRepository->findById((string)$id, withTrashed: true);
+            if (!$check) continue;
+
+            match ($action) {
+                'enable' => (function() use ($check, &$count) {
+                    if (!$check->isEnabled) {
+                        $check->isEnabled = true;
+                        $this->checkRepository->save($check);
+                        $count++;
+                    }
+                })(),
+                'disable' => (function() use ($check, &$count) {
+                    if ($check->isEnabled) {
+                        $check->isEnabled = false;
+                        $this->checkRepository->save($check);
+                        $count++;
+                    }
+                })(),
+                'trash' => (function() use ($check, &$count) {
+                    if (!$check->isTrashed()) {
+                        $this->checkRepository->softDelete($check->id);
+                        $count++;
+                    }
+                })(),
+                'restore' => (function() use ($check, &$count) {
+                    if ($check->isTrashed()) {
+                        $this->checkRepository->restore($check->id);
+                        $count++;
+                    }
+                })(),
+                'force_delete' => (function() use ($check, &$count) {
+                    $this->checkRepository->forceDelete($check->id);
+                    $count++;
+                })(),
+                default => null,
+            };
+        }
+
+        $this->auditLogger->log(
+            event: 'bulk_' . $action,
+            description: "API bulk '{$action}' performed on {$count} checks",
+            subjectType: Check::class,
+            properties: ['action' => $action, 'count' => $count, 'check_ids' => $checkIds],
+            logName: 'api_admin'
+        );
+
+        return $this->json([
+            'status' => 'ok',
+            'action' => $action,
+            'affected' => $count,
+            'message' => "Bulk action '{$action}' applied to {$count} checks",
+        ]);
+    }
 }

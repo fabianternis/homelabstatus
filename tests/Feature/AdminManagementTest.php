@@ -80,4 +80,32 @@ class AdminManagementTest extends TestCase
         $this->assertArrayHasKey('items', $pagination);
         $this->assertArrayHasKey('total_pages', $pagination);
     }
+
+    public function testBulkOperations(): void
+    {
+        $c1 = new Check(id: Ulid::generate(), name: 'Bulk Check 1', slug: 'bulk-1', type: 'uplink', isEnabled: true);
+        $c2 = new Check(id: Ulid::generate(), name: 'Bulk Check 2', slug: 'bulk-2', type: 'uplink', isEnabled: true);
+        $this->checkRepo->save($c1);
+        $this->checkRepo->save($c2);
+
+        // Bulk Disable
+        foreach ([$c1, $c2] as $c) {
+            $c->isEnabled = false;
+            $this->checkRepo->save($c);
+        }
+        $this->assertFalse($this->checkRepo->findById($c1->id)->isEnabled);
+        $this->assertFalse($this->checkRepo->findById($c2->id)->isEnabled);
+
+        // Bulk Trash
+        $this->checkRepo->softDelete($c1->id);
+        $this->checkRepo->softDelete($c2->id);
+        $this->assertTrue($this->checkRepo->findById($c1->id, withTrashed: true)->isTrashed());
+        $this->assertTrue($this->checkRepo->findById($c2->id, withTrashed: true)->isTrashed());
+
+        // Bulk Restore
+        $this->checkRepo->restore($c1->id);
+        $this->checkRepo->restore($c2->id);
+        $this->assertFalse($this->checkRepo->findById($c1->id, withTrashed: true)->isTrashed());
+        $this->assertFalse($this->checkRepo->findById($c2->id, withTrashed: true)->isTrashed());
+    }
 }

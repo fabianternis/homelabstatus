@@ -1,0 +1,168 @@
+# Homelab Uplink Monitor — English Documentation Definition (docs.en.yaml)
+version: "1.0"
+language: "en"
+title: "Homelab Uplink Monitor Documentation"
+description: "High-performance, API-first network latency and uplink health monitoring engine."
+
+sections:
+  getting_started:
+    title: "Getting Started"
+    description: "Installation, system requirements, and environment setup."
+    requirements:
+      php: "8.4+ or 8.5+"
+      extensions:
+        - "pdo_sqlite"
+        - "intl"
+        - "mbstring"
+        - "json"
+        - "pcntl"
+      composer: "2.x"
+      binaries:
+        - "ping"
+    quick_start:
+      clone: "git clone https://github.com/fabianternis/homelabstatus.git && cd homelabstatus"
+      install: "composer install"
+      cache_clear: "php bin/console cache:clear"
+      serve: "php -S 0.0.0.0:8080 -t public"
+    urls:
+      public_dashboard: "http://localhost:8080"
+      admin_dashboard: "http://localhost:8080/admin"
+      api_endpoint: "http://localhost:8080/api/v1/uplink"
+    env_variables:
+      APP_ENV: "Environment mode (dev, prod)"
+      APP_SECRET: "Symfony application secret key"
+      UPLINK_DB_PATH: "SQLite file location (default: %kernel.project_dir%/var/data/homelabstatus.sqlite)"
+
+  architecture:
+    title: "System Architecture"
+    description: "Database design, ULIDs, dynamic JSON columns, and activity tracking."
+    database:
+      engine: "SQLite 3 with WAL Mode and Foreign Keys"
+      primary_keys: "ULID (26-character monotonically sortable, URL-safe identifiers)"
+    tables:
+      checks:
+        description: "Monitored targets and resolvers with type-specific JSON configuration."
+        columns:
+          id: "ULID (VARCHAR 26)"
+          name: "VARCHAR(255)"
+          slug: "VARCHAR(255) UNIQUE"
+          type: "VARCHAR(50) — 'uplink', 'icmp_ping', 'http', 'tcp', 'dns'"
+          group_name: "VARCHAR(100)"
+          description: "TEXT NULL"
+          is_enabled: "INTEGER (1/0)"
+          status: "VARCHAR(50) — 'excellent', 'good', 'degraded', 'offline', 'unknown'"
+          config: "JSON — Target host, packets, timeout, provider name, headers"
+          last_metrics: "JSON — Latest avg latency ms, loss %, jitter ms"
+          last_executed_at: "DATETIME"
+          last_status_change_at: "DATETIME"
+          consecutive_failures: "INTEGER"
+          sort_order: "INTEGER"
+          created_at: "DATETIME"
+          updated_at: "DATETIME"
+          deleted_at: "DATETIME NULL (SoftDeletes)"
+      check_executions:
+        description: "Infinite time-series history of probe execution runs."
+        columns:
+          id: "ULID (VARCHAR 26)"
+          check_id: "ULID FK -> checks.id"
+          status: "VARCHAR(50)"
+          duration_ms: "REAL"
+          result_data: "JSON — Individual packet samples, RTT min/max/avg, jitter"
+          error_message: "TEXT NULL"
+          executed_at: "DATETIME"
+      audit_logs:
+        description: "Immutable Spatie-style audit trail of all check changes."
+        columns:
+          id: "ULID (VARCHAR 26)"
+          log_name: "VARCHAR(100)"
+          subject_type: "VARCHAR(100)"
+          subject_id: "ULID NULL"
+          event: "VARCHAR(50) — 'created', 'updated', 'deleted', 'restored', 'status_changed'"
+          properties: "JSON — Old vs New attribute diffs"
+          description: "TEXT"
+          created_at: "DATETIME"
+
+  api_reference:
+    title: "REST & Streaming API Reference"
+    description: "JSON endpoints and Server-Sent Events (SSE) specifications."
+    endpoints:
+      - method: "GET"
+        path: "/api/v1/uplink"
+        description: "Returns overall uplink state, composite health score (0-100), and all probe vitals."
+      - method: "GET"
+        path: "/api/v1/uplink/stream"
+        description: "Server-Sent Events (SSE) real-time streaming endpoint pushing live metrics every 3 seconds."
+        parameters:
+          interval: "Broadcast interval in seconds (default: 3)"
+          packets: "Packets per probe (default: 2)"
+      - method: "POST"
+        path: "/api/v1/uplink/ping"
+        description: "Executes an immediate live probe run across all active database checks."
+      - method: "GET"
+        path: "/api/v1/uplink/history"
+        description: "Historical time-series dataset with pre-computed Unicode sparklines."
+      - method: "GET"
+        path: "/api/v1/health"
+        description: "System and database connectivity health probe."
+      - method: "GET"
+        path: "/api/v1/admin/checks"
+        description: "Admin check listing with ?with_trashed=1 and ?type=uplink filters."
+      - method: "POST"
+        path: "/api/v1/admin/checks"
+        description: "Creates a new check with dynamic JSON configuration."
+      - method: "PUT"
+        path: "/api/v1/admin/checks/{id}"
+        description: "Updates an existing check."
+      - method: "DELETE"
+        path: "/api/v1/admin/checks/{id}"
+        description: "Soft-deletes a check."
+      - method: "POST"
+        path: "/api/v1/admin/checks/{id}/restore"
+        description: "Restores a soft-deleted check from trash."
+      - method: "DELETE"
+        path: "/api/v1/admin/checks/{id}/force"
+        description: "Permanently purges a check from the database."
+
+  cli_and_tui:
+    title: "CLI & Terminal User Interface (TUI)"
+    description: "Console commands for live terminal monitoring and management."
+    commands:
+      tui_monitor:
+        command: "php bin/console uplink:tui"
+        description: "Interactive real-time Curses-style ANSI dashboard with live sparklines."
+      ping_snapshot:
+        command: "php bin/console uplink:ping"
+        description: "Executes a probe snapshot across all active checks and prints a formatted table."
+        options:
+          --json: "Outputs pure JSON payload"
+          --loop: "Runs continuously every N seconds"
+          --count: "Number of ICMP packets per target"
+      check_list:
+        command: "php bin/console check:list"
+        description: "Lists all database checks with ULID, host, status, latency, and group."
+      check_create:
+        command: "php bin/console check:create <name> <host>"
+        description: "Creates a new check in the database with ULID generation."
+      check_toggle:
+        command: "php bin/console check:toggle <id|slug>"
+        description: "Enables or disables a check."
+      check_delete:
+        command: "php bin/console check:delete <id|slug>"
+        description: "Moves check to trash (or --force for permanent deletion)."
+      check_restore:
+        command: "php bin/console check:restore <id|slug>"
+        description: "Restores a soft-deleted check from trash."
+      audit_list:
+        command: "php bin/console audit:list"
+        description: "Displays recent audit trail events."
+
+  web_dashboard:
+    title: "Web Dashboard & PWA"
+    description: "Frontend architecture, reactive DOM hydration, and offline caching."
+    features:
+      changed_only_flashing: "Subtle pulse animation triggers strictly on elements whose value changed."
+      chartjs_sparklines: "Canvas micro-charts render cubic bezier curves with gradient area fills."
+      privacy_ip_widget: "Client IP is blurred by default and unblurs smoothly on hover."
+      tab_visibility_lifecycle: "Automatically pauses SSE stream when tab is backgrounded to save CPU."
+      service_worker_pwa: "Stale-While-Revalidate caching with native installable PWA manifest."
+      locale_dropdown: "Auto-discovering language switcher with session persistence."

@@ -1,0 +1,16 @@
+# docs.en.yaml (Symfony Translation Domain 'docs')
+docs:
+  title: "Homelab Uplink Monitor Documentation"
+  version: "1.0"
+  getting_started:
+    title: "Getting Started"
+    desc: "Installation and quick start guide"
+  architecture:
+    title: "System Architecture"
+    desc: "ULIDs, JSON columns, SoftDeletes, and Audit Logging"
+  api:
+    title: "REST API Reference"
+    desc: "Endpoints and Server-Sent Events (SSE)"
+  cli:
+    title: "CLI & TUI"
+    desc: "Terminal user interface and console administration"

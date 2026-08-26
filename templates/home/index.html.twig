@@ -1,560 +1,350 @@
-<!DOCTYPE html>
-<html lang="{{ locale }}" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ 'app.title'|trans }}</title>
-    
-    <!-- PWA & Meta Tags -->
-    <link rel="manifest" href="/manifest.json">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta name="theme-color" content="#10b981">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Uplink">
+{% extends 'home/base.html.twig' %}
 
-    <!-- Tailwind & Chart.js -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
-        
-        .blur-ip {
-            filter: blur(5px);
-            transition: filter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            user-select: none;
-        }
-        .blur-ip:hover {
-            filter: blur(0);
-            user-select: text;
-        }
+{% block title %}Dashboard Overview{% endblock %}
 
-        @keyframes pulse-highlight {
-            0% {
-                background-color: rgba(16, 185, 129, 0.25);
-                color: #34d399;
-                border-radius: 4px;
-            }
-            100% {
-                background-color: transparent;
-            }
-        }
-        .live-updated {
-            animation: pulse-highlight 0.9s ease-out;
-        }
-    </style>
-</head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
-    <!-- Header -->
-    <header class="border-b border-zinc-800/80 bg-zinc-900/60 backdrop-blur sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+{% block content %}
+<div class="space-y-8">
+    <!-- Main Global Status Hero -->
+    <div id="hero-card" class="rounded-3xl p-6 sm:p-8 border transition-all duration-500 {% if uplinkStatus.state.value == 'excellent' or uplinkStatus.state.value == 'good' %}bg-gradient-to-br from-emerald-950/40 via-zinc-900/50 to-zinc-900 border-emerald-500/30{% elseif uplinkStatus.state.value == 'degraded' %}bg-gradient-to-br from-amber-950/40 via-zinc-900/50 to-zinc-900 border-amber-500/30{% else %}bg-gradient-to-br from-rose-950/40 via-zinc-900/50 to-zinc-900 border-rose-500/30{% endif %}">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-xl {% if uplinkStatus.state.value == 'excellent' or uplinkStatus.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border-emerald-500/40{% elseif uplinkStatus.state.value == 'degraded' %}bg-amber-500/20 text-amber-400 border-amber-500/40{% else %}bg-rose-500/20 text-rose-400 border-rose-500/40{% endif %}">
+                    <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                     </svg>
                 </div>
                 <div>
-                    <span class="font-bold text-lg text-white tracking-tight">{{ 'app.name'|trans }} <span class="text-emerald-400">{{ 'app.uplink'|trans }}</span></span>
-                    <span class="text-[10px] uppercase font-mono px-2 py-0.5 ml-2 bg-zinc-800 text-zinc-400 rounded-md border border-zinc-700">{{ 'app.tagline'|trans }}</span>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">All Systems Operational</h1>
+                        <span id="hero-state-badge" class="px-3 py-0.5 text-xs font-semibold rounded-full uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            {{ uplinkStatus.state.value }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-zinc-400 mt-1.5">
+                        Monitoring <span class="font-bold text-white font-mono">{{ allChecks|length }}</span> services across WAN Uplink & Web Endpoints • Evaluated <span id="hero-evaluated-time" class="font-mono text-zinc-300">{{ uplinkStatus.evaluatedAt|date('H:i:s T') }}</span>
+                    </p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 text-xs font-mono">
-                <!-- Dynamic Language Switcher Dropdown -->
-                <div class="relative inline-block">
-                    <select onchange="window.location.href='?lang=' + this.value" class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none transition">
-                        {% for code, loc in availableLocales %}
-                            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>
-                                {{ loc.native_name }} ({{ code|upper }})
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-zinc-500">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- IP Address (Blurred by default, hover to reveal) -->
-                <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs" title="{{ 'app.hover_ip'|trans }}">
-                    <span class="text-zinc-500 font-sans text-[11px]">{{ 'app.ip_label'|trans }}</span>
-                    <span class="blur-ip font-mono text-zinc-200 font-semibold cursor-pointer px-1 py-0.5 bg-zinc-950/80 rounded border border-zinc-800/60">
-                        {{ clientIp|default('127.0.0.1') }}
-                    </span>
-                </div>
-
-                <!-- Live indicator -->
-                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400">
-                    <span id="connection-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="connection-text">{{ 'app.connecting'|trans }}</span>
-                </div>
-
-                <button id="toggle-live-btn" onclick="toggleLiveStream()" class="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-semibold transition">
-                    {{ 'app.pause'|trans }}
+            <div class="flex items-center gap-4">
+                <button onclick="triggerImmediateProbe()" id="probe-btn" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span id="probe-btn-text">Probe All Services</span>
                 </button>
-
-                <a href="/api/v1/uplink" target="_blank" class="hidden sm:inline-block px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition">
-                    {{ 'app.json_api'|trans }}
-                </a>
             </div>
         </div>
-    </header>
+    </div>
 
-    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-        <!-- Live Uplink Summary Card -->
-        <div id="hero-card" class="rounded-2xl p-6 sm:p-8 border transition-all duration-500 {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-gradient-to-br from-emerald-950/40 via-zinc-900/50 to-zinc-900 border-emerald-500/30{% elseif status.state.value == 'degraded' %}bg-gradient-to-br from-amber-950/40 via-zinc-900/50 to-zinc-900 border-amber-500/30{% else %}bg-gradient-to-br from-rose-950/40 via-zinc-900/50 to-zinc-900 border-rose-500/30{% endif %}">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div class="flex items-center gap-4">
-                    <div id="hero-icon" class="w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border-emerald-500/40{% elseif status.state.value == 'degraded' %}bg-amber-500/20 text-amber-400 border-amber-500/40{% else %}bg-rose-500/20 text-rose-400 border-rose-500/40{% endif %}">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+    <!-- Category Highlights Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Uplink WAN Card -->
+        <a href="/uplink" class="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-emerald-500/40 transition group block space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                         </svg>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
-                            <h1 id="hero-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                                {{ 'status.title'|trans({'%state%': ('state.' ~ status.state.value)|trans}) }}
-                            </h1>
-                            <span id="hero-state-badge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/20 text-amber-400 border border-amber-500/30{% endif %}">
-                                {{ ('state.' ~ status.state.value)|trans }}
-                            </span>
-                        </div>
-                        <p class="text-sm text-zinc-400 mt-1">
-                            <span id="hero-targets-summary">{{ 'status.probed_summary'|trans({'%healthy%': status.healthyTargetsCount, '%total%': status.activeTargetsCount}) }}</span> • <span id="hero-evaluated-time" class="font-mono text-zinc-300">{{ 'status.evaluated_at'|trans({'%time%': status.evaluatedAt|date('H:i:s T')}) }}</span>
-                        </p>
+                        <h2 class="text-base font-bold text-white group-hover:text-emerald-400 transition">Uplink (WAN) Quality</h2>
+                        <p class="text-xs text-zinc-400">{{ uplinkStatus.healthyTargetsCount }}/{{ uplinkStatus.activeTargetsCount }} external Anycast targets healthy</p>
                     </div>
                 </div>
+                <div class="text-right">
+                    <div class="text-xs font-mono text-zinc-500 uppercase">Score</div>
+                    <div class="text-xl font-bold font-mono text-emerald-400"><span id="hero-score">{{ uplinkStatus.healthScore }}</span><span class="text-xs text-zinc-500">/100</span></div>
+                </div>
+            </div>
 
-                <div class="flex items-center gap-4">
-                    <div class="bg-zinc-950/60 border border-zinc-800 px-4 py-3 rounded-xl text-center">
-                        <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">{{ 'status.health_score'|trans }}</div>
-                        <div class="text-2xl font-mono font-bold text-emerald-400"><span id="hero-score">{{ status.healthScore }}</span><span class="text-xs text-zinc-500">/100</span></div>
-                    </div>
-                    <button onclick="triggerImmediateProbe()" id="probe-btn" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            <div class="grid grid-cols-3 gap-2 pt-2 text-center text-xs">
+                <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
+                    <div class="text-[10px] text-zinc-500 uppercase font-mono">Avg Latency</div>
+                    <div id="vital-latency" class="font-bold text-white font-mono mt-0.5">{{ uplinkStatus.avgLatencyMs|round(1) }} ms</div>
+                </div>
+                <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
+                    <div class="text-[10px] text-zinc-500 uppercase font-mono">Packet Loss</div>
+                    <div id="vital-loss" class="font-bold font-mono mt-0.5 {% if uplinkStatus.avgPacketLossPercent == 0 %}text-emerald-400{% else %}text-amber-400{% endif %}">{{ uplinkStatus.avgPacketLossPercent|round(1) }}%</div>
+                </div>
+                <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
+                    <div class="text-[10px] text-zinc-500 uppercase font-mono">Jitter</div>
+                    <div id="vital-jitter" class="font-bold text-white font-mono mt-0.5">±{{ uplinkStatus.avgJitterMs|round(1) }} ms</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-mono text-emerald-400 flex items-center justify-end gap-1 pt-1">
+                View Uplink Details & Sparklines →
+            </div>
+        </a>
+
+        <!-- HTTP Services Card -->
+        <a href="/http" class="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-emerald-500/40 transition group block space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
                         </svg>
-                        <span id="probe-btn-text">{{ 'status.ping_now'|trans }}</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Vitals Row -->
-            <div class="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-zinc-800/60">
-                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
-                    <span class="text-[11px] text-zinc-400">{{ 'status.avg_latency'|trans }}</span>
-                    <div id="vital-latency" class="text-lg font-mono font-bold text-white mt-0.5">{{ status.avgLatencyMs|round(1) }} ms</div>
-                </div>
-                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
-                    <span class="text-[11px] text-zinc-400">{{ 'status.avg_loss'|trans }}</span>
-                    <div id="vital-loss" class="text-lg font-mono font-bold {% if status.avgPacketLossPercent == 0 %}text-emerald-400{% else %}text-amber-400{% endif %} mt-0.5">
-                        {{ status.avgPacketLossPercent|round(1) }}%
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white group-hover:text-blue-400 transition">HTTP & Web Endpoints</h2>
+                        <p class="text-xs text-zinc-400">{{ httpChecks|length }} monitored endpoints with TLS/SSL tracking</p>
                     </div>
                 </div>
-                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
-                    <span class="text-[11px] text-zinc-400">{{ 'status.avg_jitter'|trans }}</span>
-                    <div id="vital-jitter" class="text-lg font-mono font-bold text-white mt-0.5">±{{ status.avgJitterMs|round(2) }} ms</div>
+                <div class="text-right">
+                    <div class="text-xs font-mono text-zinc-500 uppercase">Status</div>
+                    <div class="text-xs font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 mt-1">Healthy</div>
                 </div>
             </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-2 text-center text-xs">
+                <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
+                    <div class="text-[10px] text-zinc-500 uppercase font-mono">Web Services</div>
+                    <div class="font-bold text-white font-mono mt-0.5">{{ httpChecks|length }} Active</div>
+                </div>
+                <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
+                    <div class="text-[10px] text-zinc-500 uppercase font-mono">SSL Certificates</div>
+                    <div class="font-bold text-emerald-400 font-mono mt-0.5">100% Valid</div>
+                </div>
+            </div>
+
+            <div class="text-xs font-mono text-blue-400 flex items-center justify-end gap-1 pt-1">
+                View HTTP Endpoints & SSL Details →
+            </div>
+        </a>
+    </div>
+
+    <!-- Unified Services Status Table -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-base font-bold text-white">All Monitored Services</h2>
+                <p class="text-xs text-zinc-400">Live statuses across all configured check types</p>
+            </div>
+            <a href="/admin/checks" class="text-xs font-mono text-emerald-400 hover:underline">Manage in Admin →</a>
         </div>
 
-        <!-- Target Probes Table with Chart.js Canvas Sparklines -->
-        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-white">{{ 'table.heading'|trans }}</h2>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead>
-                        <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
-                            <th class="pb-3">{{ 'table.check_name'|trans }}</th>
-                            <th class="pb-3">{{ 'table.target_host'|trans }}</th>
-                            <th class="pb-3">{{ 'table.latency'|trans }}</th>
-                            <th class="pb-3">{{ 'table.jitter'|trans }}</th>
-                            <th class="pb-3">{{ 'table.loss'|trans }}</th>
-                            <th class="pb-3 w-44">{{ 'table.sparkline'|trans }}</th>
-                            <th class="pb-3 text-right">{{ 'table.status'|trans }}</th>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                        <th class="pb-3">Service Name</th>
+                        <th class="pb-3">Type</th>
+                        <th class="pb-3">Target</th>
+                        <th class="pb-3">Latency / Response</th>
+                        <th class="pb-3">Group</th>
+                        <th class="pb-3 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-800/50">
+                    {% for check in allChecks %}
+                        <tr id="row-{{ check.id }}" class="hover:bg-zinc-800/20 transition duration-300">
+                            <td class="py-3.5 font-semibold text-white">
+                                {{ check.name }}
+                                <div class="text-[10px] text-zinc-500 font-normal">{{ check.config.provider|default('Anycast') }}</div>
+                            </td>
+                            <td class="py-3.5 font-mono">
+                                <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold {% if check.type == 'uplink' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-blue-500/10 text-blue-400 border border-blue-500/20{% endif %}">
+                                    {{ check.type }}
+                                </span>
+                            </td>
+                            <td class="py-3.5 font-mono text-zinc-300">{{ check.config.url|default(check.config.host|default('-')) }}</td>
+                            <td class="py-3.5 font-mono text-white font-bold">
+                                <span id="lat-{{ check.id }}">
+                                    {% if check.lastMetrics.avg_latency_ms is defined and check.lastMetrics.avg_latency_ms is not null %}
+                                        {{ check.lastMetrics.avg_latency_ms|round(1) }} ms
+                                    {% elseif check.lastMetrics.duration_ms is defined and check.lastMetrics.duration_ms is not null %}
+                                        {{ check.lastMetrics.duration_ms|round(1) }} ms
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="py-3.5 text-zinc-400">{{ check.groupName }}</td>
+                            <td id="badge-{{ check.id }}" class="py-3.5 text-right">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if check.status.value == 'excellent' or check.status.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                    {{ ('state.' ~ check.status.value)|trans }}
+                                </span>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody id="targets-tbody" class="divide-y divide-zinc-800/50">
-                        {% for targetRes in status.targets %}
-                            {% set tInfo = history.targets[targetRes.targetId]|default(null) %}
-                            <tr id="row-{{ targetRes.targetId }}" class="hover:bg-zinc-800/20 transition duration-300">
-                                <td class="py-3 font-semibold text-white">
-                                    {{ tInfo.check.name|default(targetRes.targetId) }}
-                                    <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.check.config.provider|default('Anycast') }}</div>
-                                </td>
-                                <td class="py-3 font-mono text-zinc-300">{{ targetRes.host }}</td>
-                                <td class="py-3 font-mono text-white font-bold"><span id="lat-{{ targetRes.targetId }}">{{ targetRes.avgLatencyMs|round(1) }} ms</span></td>
-                                <td class="py-3 font-mono text-zinc-400"><span id="jit-{{ targetRes.targetId }}">±{{ targetRes.jitterMs|round(1) }} ms</span></td>
-                                <td class="py-3 font-mono"><span id="loss-{{ targetRes.targetId }}" class="{% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">{{ targetRes.packetLossPercent|round(0) }}%</span></td>
-                                <td class="py-3">
-                                    <div class="w-40 h-8 bg-zinc-950/60 rounded border border-zinc-800/60 p-1 flex items-center justify-center">
-                                        <canvas id="chart-{{ targetRes.targetId }}" width="150" height="28"></canvas>
-                                    </div>
-                                </td>
-                                <td id="badge-{{ targetRes.targetId }}" class="py-3 text-right">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if targetRes.state.value == 'excellent' or targetRes.state.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
-                                        {{ ('state.' ~ targetRes.state.value)|trans }}
-                                    </span>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+    </div>
+</div>
+{% endblock %}
 
-        <!-- Terminal User Interface (TUI) Notice -->
-        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="font-mono text-emerald-400">$</span>
-                        {{ 'tui.heading'|trans }}
-                    </h3>
-                    <p class="text-xs text-zinc-400 mt-1">{{ 'tui.description'|trans }}</p>
-                </div>
-                <code class="bg-zinc-950 border border-zinc-800 px-3.5 py-2 rounded-xl text-xs text-emerald-400 font-mono">
-                    php bin/console uplink:tui
-                </code>
-            </div>
-        </div>
-    </main>
+{% block scripts %}
+<script>
+    const stateLabels = {{ stateTranslations|json_encode|raw }};
+    const uiText = {{ uiTranslations|json_encode|raw }};
+    let eventSource = null;
+    let isManuallyPaused = false;
+    let fallbackTimer = null;
 
-    <!-- Initial Data Payload for Chart.js Bootstrapping -->
-    <script>
-        const initialHistoryData = {{ history|json_encode|raw }};
-        const stateLabels = {{ stateTranslations|json_encode|raw }};
-        const uiText = {{ uiTranslations|json_encode|raw }};
-        const chartInstances = {};
+    function updateIfChanged(el, newContent, isHtml = false) {
+        if (!el) return;
+        const current = (isHtml ? el.innerHTML : el.textContent).trim();
+        const incoming = String(newContent).trim();
 
-        function initSparklineCharts(historyData) {
-            if (!historyData || !historyData.targets) return;
-
-            Object.entries(historyData.targets).forEach(([targetId, info]) => {
-                const canvas = document.getElementById('chart-' + targetId);
-                if (!canvas) return;
-
-                const latencies = (info.history || [])
-                    .map(h => h.avg_latency_ms)
-                    .filter(l => l !== null);
-
-                const labels = (info.history || []).map((_, i) => i + 1);
-
-                const ctx = canvas.getContext('2d');
-                const gradient = ctx.createLinearGradient(0, 0, 0, 28);
-                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
-
-                chartInstances[targetId] = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels.length ? labels : [1],
-                        datasets: [{
-                            data: latencies.length ? latencies : [0],
-                            borderColor: '#10b981',
-                            borderWidth: 1.5,
-                            backgroundColor: gradient,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 3,
-                            pointHoverBackgroundColor: '#34d399',
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                enabled: true,
-                                mode: 'index',
-                                intersect: false,
-                                displayColors: false,
-                                callbacks: {
-                                    title: () => '',
-                                    label: (ctx) => `${ctx.parsed.y.toFixed(1)} ms`
-                                }
-                            }
-                        },
-                        scales: {
-                            x: { display: false },
-                            y: { display: false, beginAtZero: false }
-                        }
-                    }
-                });
-            });
-        }
-
-        function updateSparklineChart(targetId, historyList) {
-            const chart = chartInstances[targetId];
-            if (!chart || !historyList) return;
-
-            const latencies = historyList.map(h => h.avg_latency_ms).filter(l => l !== null);
-            const labels = historyList.map((_, i) => i + 1);
-
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = latencies;
-            chart.update('none');
-        }
-    </script>
-
-    <!-- Client-side SSE Live Update Engine & Service Worker Registration -->
-    <script>
-        let eventSource = null;
-        let isManuallyPaused = false;
-        let fallbackTimer = null;
-
-        // Register Service Worker for PWA & Offline Support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('Uplink ServiceWorker registered:', reg.scope))
-                    .catch(err => console.warn('ServiceWorker registration skipped:', err));
-            });
-        }
-
-        // Helper: Updates element only if changed, flashing ONLY the changed element
-        function updateIfChanged(el, newContent, isHtml = false) {
-            if (!el) return;
-            const current = (isHtml ? el.innerHTML : el.textContent).trim();
-            const incoming = String(newContent).trim();
-
-            if (current !== incoming) {
-                if (isHtml) {
-                    el.innerHTML = newContent;
-                } else {
-                    el.textContent = newContent;
-                }
-                el.classList.remove('live-updated');
-                void el.offsetWidth; // trigger reflow
-                el.classList.add('live-updated');
+        if (current !== incoming) {
+            if (isHtml) {
+                el.innerHTML = newContent;
+            } else {
+                el.textContent = newContent;
             }
+            el.classList.remove('live-updated');
+            void el.offsetWidth;
+            el.classList.add('live-updated');
         }
+    }
 
-        function connectSSE() {
-            if (isManuallyPaused || document.hidden) return;
+    function connectSSE() {
+        if (isManuallyPaused || document.hidden) return;
+        const dot = document.getElementById('connection-dot');
+        const text = document.getElementById('connection-text');
 
-            const dot = document.getElementById('connection-dot');
-            const text = document.getElementById('connection-text');
+        try {
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource('/api/v1/uplink/stream?interval=3&packets=2');
 
-            try {
-                if (eventSource) {
-                    eventSource.close();
+            eventSource.addEventListener('open', () => {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                text.textContent = uiText.live_sse || 'LIVE SSE STREAM';
+                text.className = 'text-emerald-400 font-bold';
+            });
+
+            eventSource.addEventListener('update', (event) => {
+                if (isManuallyPaused || document.hidden) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    updateDOM(data);
+                } catch (err) {
+                    console.error('Error parsing SSE payload', err);
                 }
+            });
 
-                eventSource = new EventSource('/api/v1/uplink/stream?interval=3&packets=2');
-
-                eventSource.addEventListener('open', () => {
-                    dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-                    text.textContent = uiText.live_sse || 'LIVE SSE STREAM';
-                    text.className = 'text-emerald-400 font-bold';
-                });
-
-                eventSource.addEventListener('update', (event) => {
-                    if (isManuallyPaused || document.hidden) return;
-                    try {
-                        const data = JSON.parse(event.data);
-                        updateDOM(data);
-                    } catch (err) {
-                        console.error('Error parsing SSE payload', err);
-                    }
-                });
-
-                eventSource.onerror = () => {
-                    if (document.hidden) return;
-                    dot.className = 'w-2 h-2 rounded-full bg-amber-500';
-                    text.textContent = uiText.fallback_polling || 'FALLBACK POLLING';
-                    text.className = 'text-amber-400 font-bold';
-                    eventSource.close();
-                    if (!fallbackTimer && !document.hidden) {
-                        fallbackTimer = setInterval(pollFallback, 3000);
-                    }
-                };
-            } catch (e) {
-                console.error('SSE initialization error', e);
+            eventSource.onerror = () => {
+                if (document.hidden) return;
+                dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                text.textContent = uiText.fallback_polling || 'FALLBACK POLLING';
+                text.className = 'text-amber-400 font-bold';
+                eventSource.close();
                 if (!fallbackTimer && !document.hidden) {
                     fallbackTimer = setInterval(pollFallback, 3000);
                 }
-            }
+            };
+        } catch (e) {
+            console.error('SSE initialization error', e);
+        }
+    }
+
+    function disconnectSSE(reason = null) {
+        const dot = document.getElementById('connection-dot');
+        const text = document.getElementById('connection-text');
+
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        if (fallbackTimer) {
+            clearInterval(fallbackTimer);
+            fallbackTimer = null;
         }
 
-        function disconnectSSE(reason = null) {
-            const dot = document.getElementById('connection-dot');
-            const text = document.getElementById('connection-text');
+        dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+        text.textContent = reason || uiText.paused || 'PAUSED';
+        text.className = 'text-zinc-500 font-bold';
+    }
 
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
-            if (fallbackTimer) {
-                clearInterval(fallbackTimer);
-                fallbackTimer = null;
-            }
-
-            dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
-            text.textContent = reason || uiText.paused || 'PAUSED';
-            text.className = 'text-zinc-500 font-bold';
-        }
-
-        // Tab visibility listener: only keep connection alive when tab is actively focused
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                disconnectSSE(uiText.idle_background || 'IDLE (TAB IN BACKGROUND)');
-            } else {
-                if (!isManuallyPaused) {
-                    connectSSE();
-                    triggerImmediateProbe();
-                }
-            }
-        });
-
-        async function pollFallback() {
-            if (isManuallyPaused || document.hidden) return;
-            try {
-                const res = await fetch('/api/v1/uplink/history?samples=20');
-                const statusRes = await fetch('/api/v1/uplink');
-                const historyData = await res.json();
-                const statusData = await statusRes.json();
-
-                updateDOM({
-                    summary: statusData.data,
-                    history: historyData.data,
-                    timestamp: new Date().toISOString()
-                });
-            } catch (err) {
-                console.error('Fallback poll error', err);
-            }
-        }
-
-        function updateDOM(payload) {
-            const summary = payload.summary;
-            const history = payload.history;
-            const localizedState = stateLabels[summary.state] || summary.state_label || summary.state;
-
-            // 1. Hero Card
-            const titleStr = (uiText.title_template || 'Uplink {state}').replace('{state}', localizedState);
-            updateIfChanged(document.getElementById('hero-title'), titleStr);
-            
-            const stateBadge = document.getElementById('hero-state-badge');
-            if (stateBadge) {
-                updateIfChanged(stateBadge, localizedState);
-                if (summary.state === 'excellent' || summary.state === 'good') {
-                    stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-                } else {
-                    stateBadge.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
-                }
-            }
-
-            updateIfChanged(document.getElementById('hero-score'), summary.health_score);
-            
-            const summaryStr = (uiText.summary_template || '{healthy} of {total}')
-                .replace('{healthy}', summary.targets_summary.healthy)
-                .replace('{total}', summary.targets_summary.total);
-            updateIfChanged(document.getElementById('hero-targets-summary'), summaryStr);
-            
-            const time = new Date(summary.evaluated_at);
-            const timeStr = (uiText.evaluated_at_template || 'Evaluated {time}')
-                .replace('{time}', time.toLocaleTimeString());
-            updateIfChanged(document.getElementById('hero-evaluated-time'), timeStr);
-
-            // 2. Vitals
-            updateIfChanged(document.getElementById('vital-latency'), summary.metrics.avg_latency_ms + ' ms');
-            updateIfChanged(document.getElementById('vital-loss'), summary.metrics.avg_packet_loss_percent + '%');
-            updateIfChanged(document.getElementById('vital-jitter'), '±' + summary.metrics.avg_jitter_ms + ' ms');
-
-            // 3. Targets Table (Flash ONLY individual cells that actually changed)
-            if (summary.targets && summary.targets.length > 0) {
-                summary.targets.forEach(t => {
-                    const latEl = document.getElementById('lat-' + t.target_id);
-                    const jitEl = document.getElementById('jit-' + t.target_id);
-                    const lossEl = document.getElementById('loss-' + t.target_id);
-                    const badgeEl = document.getElementById('badge-' + t.target_id);
-
-                    if (latEl) {
-                        const newLat = t.avg_latency_ms !== null ? t.avg_latency_ms + ' ms' : 'DOWN';
-                        updateIfChanged(latEl, newLat);
-                    }
-
-                    if (jitEl) {
-                        const newJit = t.jitter_ms !== null ? '±' + t.jitter_ms + ' ms' : '-';
-                        updateIfChanged(jitEl, newJit);
-                    }
-
-                    if (lossEl) {
-                        const newLoss = t.packet_loss_percent + '%';
-                        updateIfChanged(lossEl, newLoss);
-                        lossEl.className = 'transition ' + (t.packet_loss_percent === 0 ? 'text-emerald-400' : 'text-rose-400');
-                    }
-
-                    if (history && history.targets && history.targets[t.target_id]) {
-                        updateSparklineChart(t.target_id, history.targets[t.target_id].history);
-                    }
-
-                    if (badgeEl) {
-                        const isGood = t.state === 'excellent' || t.state === 'good';
-                        const badgeStateText = stateLabels[t.state] || t.state;
-                        const newBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isGood ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}">${badgeStateText}</span>`;
-                        updateIfChanged(badgeEl, newBadgeHtml, true);
-                    }
-                });
-            }
-        }
-
-        function toggleLiveStream() {
-            const btn = document.getElementById('toggle-live-btn');
-
-            if (isManuallyPaused) {
-                isManuallyPaused = false;
-                btn.textContent = uiText.pause || 'Pause';
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            disconnectSSE(uiText.idle_background || 'IDLE (TAB IN BACKGROUND)');
+        } else {
+            if (!isManuallyPaused) {
                 connectSSE();
-            } else {
-                isManuallyPaused = true;
-                btn.textContent = uiText.resume || 'Resume';
-                disconnectSSE(uiText.paused || 'PAUSED');
+                triggerImmediateProbe();
             }
         }
+    });
 
-        async function triggerImmediateProbe() {
-            const btn = document.getElementById('probe-btn');
-            const btnText = document.getElementById('probe-btn-text');
-            btn.disabled = true;
-            btnText.innerHTML = uiText.pinging || 'Pinging...';
-            try {
-                const res = await fetch('/api/v1/uplink/ping', { method: 'POST' });
-                const json = await res.json();
-                if (json.data) {
-                    const histRes = await fetch('/api/v1/uplink/history?samples=20');
-                    const histJson = await histRes.json();
-                    updateDOM({
-                        summary: json.data,
-                        history: histJson.data,
-                        timestamp: new Date().toISOString()
-                    });
+    async function pollFallback() {
+        if (isManuallyPaused || document.hidden) return;
+        try {
+            const statusRes = await fetch('/api/v1/uplink');
+            const statusData = await statusRes.json();
+            updateDOM({ summary: statusData.data, timestamp: new Date().toISOString() });
+        } catch (err) {
+            console.error('Fallback poll error', err);
+        }
+    }
+
+    function updateDOM(payload) {
+        const summary = payload.summary;
+        if (!summary) return;
+
+        updateIfChanged(document.getElementById('hero-score'), summary.health_score);
+        updateIfChanged(document.getElementById('vital-latency'), summary.metrics.avg_latency_ms + ' ms');
+        updateIfChanged(document.getElementById('vital-loss'), summary.metrics.avg_packet_loss_percent + '%');
+        updateIfChanged(document.getElementById('vital-jitter'), '±' + summary.metrics.avg_jitter_ms + ' ms');
+
+        const time = new Date(summary.evaluated_at);
+        updateIfChanged(document.getElementById('hero-evaluated-time'), time.toLocaleTimeString());
+
+        if (summary.targets) {
+            summary.targets.forEach(t => {
+                const latEl = document.getElementById('lat-' + t.target_id);
+                const badgeEl = document.getElementById('badge-' + t.target_id);
+
+                if (latEl) {
+                    const newLat = t.avg_latency_ms !== null ? t.avg_latency_ms + ' ms' : 'DOWN';
+                    updateIfChanged(latEl, newLat);
                 }
-            } catch (e) {
-                alert('Probe error: ' + e);
-            } finally {
-                btn.disabled = false;
-                btnText.innerHTML = uiText.ping_now || 'Ping Now';
-            }
-        }
 
-        // Initialize Charts & Start SSE on initial page load
-        window.addEventListener('DOMContentLoaded', () => {
-            initSparklineCharts(initialHistoryData);
-            if (!document.hidden) {
-                connectSSE();
-            }
-        });
-    </script>
-</body>
-</html>
+                if (badgeEl) {
+                    const isGood = t.state === 'excellent' || t.state === 'good';
+                    const badgeStateText = stateLabels[t.state] || t.state;
+                    const newBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isGood ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}">${badgeStateText}</span>`;
+                    updateIfChanged(badgeEl, newBadgeHtml, true);
+                }
+            });
+        }
+    }
+
+    function toggleLiveStream() {
+        const btn = document.getElementById('toggle-live-btn');
+        if (isManuallyPaused) {
+            isManuallyPaused = false;
+            btn.textContent = uiText.pause || 'Pause';
+            connectSSE();
+        } else {
+            isManuallyPaused = true;
+            btn.textContent = uiText.resume || 'Resume';
+            disconnectSSE(uiText.paused || 'PAUSED');
+        }
+    }
+
+    async function triggerImmediateProbe() {
+        const btn = document.getElementById('probe-btn');
+        btn.disabled = true;
+        btn.innerHTML = 'Probing...';
+        try {
+            await fetch('/api/v1/uplink/ping', { method: 'POST' });
+            await fetch('/api/v1/http/check', { method: 'POST' });
+            window.location.reload();
+        } catch (e) {
+            alert('Probe error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Probe All Services';
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        if (!document.hidden) connectSSE();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,412 @@
+{% extends 'home/base.html.twig' %}
+
+{% block title %}Uplink (WAN) Quality{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Uplink Quality Hero Card -->
+    <div id="hero-card" class="rounded-3xl p-6 sm:p-8 border transition-all duration-500 {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-gradient-to-br from-emerald-950/40 via-zinc-900/50 to-zinc-900 border-emerald-500/30{% elseif status.state.value == 'degraded' %}bg-gradient-to-br from-amber-950/40 via-zinc-900/50 to-zinc-900 border-amber-500/30{% else %}bg-gradient-to-br from-rose-950/40 via-zinc-900/50 to-zinc-900 border-rose-500/30{% endif %}">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-xl {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border-emerald-500/40{% elseif status.state.value == 'degraded' %}bg-amber-500/20 text-amber-400 border-amber-500/40{% else %}bg-rose-500/20 text-rose-400 border-rose-500/40{% endif %}">
+                    <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 id="hero-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                            {{ 'status.title'|trans({'%state%': ('state.' ~ status.state.value)|trans}) }}
+                        </h1>
+                        <span id="hero-state-badge" class="px-3 py-0.5 text-xs font-semibold rounded-full uppercase {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/20 text-amber-400 border border-amber-500/30{% endif %}">
+                            {{ ('state.' ~ status.state.value)|trans }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-zinc-400 mt-1.5">
+                        <span id="hero-targets-summary">{{ 'status.probed_summary'|trans({'%healthy%': status.healthyTargetsCount, '%total%': status.activeTargetsCount}) }}</span> • <span id="hero-evaluated-time" class="font-mono text-zinc-300">{{ 'status.evaluated_at'|trans({'%time%': status.evaluatedAt|date('H:i:s T')}) }}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="bg-zinc-950/60 border border-zinc-800 px-4 py-3 rounded-2xl text-center">
+                    <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">{{ 'status.health_score'|trans }}</div>
+                    <div class="text-2xl font-mono font-bold text-emerald-400"><span id="hero-score">{{ status.healthScore }}</span><span class="text-xs text-zinc-500">/100</span></div>
+                </div>
+                <button onclick="triggerImmediateProbe()" id="probe-btn" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span id="probe-btn-text">{{ 'status.ping_now'|trans }}</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Vitals Grid -->
+        <div class="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-zinc-800/60">
+            <div class="bg-zinc-950/40 p-3 rounded-2xl border border-zinc-800/60 text-center">
+                <span class="text-[11px] text-zinc-400">{{ 'status.avg_latency'|trans }}</span>
+                <div id="vital-latency" class="text-lg font-mono font-bold text-white mt-0.5">{{ status.avgLatencyMs|round(1) }} ms</div>
+            </div>
+            <div class="bg-zinc-950/40 p-3 rounded-2xl border border-zinc-800/60 text-center">
+                <span class="text-[11px] text-zinc-400">{{ 'status.avg_loss'|trans }}</span>
+                <div id="vital-loss" class="text-lg font-mono font-bold {% if status.avgPacketLossPercent == 0 %}text-emerald-400{% else %}text-amber-400{% endif %} mt-0.5">
+                    {{ status.avgPacketLossPercent|round(1) }}%
+                </div>
+            </div>
+            <div class="bg-zinc-950/40 p-3 rounded-2xl border border-zinc-800/60 text-center">
+                <span class="text-[11px] text-zinc-400">{{ 'status.avg_jitter'|trans }}</span>
+                <div id="vital-jitter" class="text-lg font-mono font-bold text-white mt-0.5">±{{ status.avgJitterMs|round(2) }} ms</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Targets Table with Chart.js Canvas Sparklines -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white">{{ 'table.heading'|trans }}</h2>
+            <a href="/api/v1/uplink" target="_blank" class="text-xs font-mono text-emerald-400 hover:underline">JSON Endpoint ↗</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                        <th class="pb-3">{{ 'table.check_name'|trans }}</th>
+                        <th class="pb-3">{{ 'table.target_host'|trans }}</th>
+                        <th class="pb-3">{{ 'table.latency'|trans }}</th>
+                        <th class="pb-3">{{ 'table.jitter'|trans }}</th>
+                        <th class="pb-3">{{ 'table.loss'|trans }}</th>
+                        <th class="pb-3 w-44">{{ 'table.sparkline'|trans }}</th>
+                        <th class="pb-3 text-right">{{ 'table.status'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody id="targets-tbody" class="divide-y divide-zinc-800/50">
+                    {% for targetRes in status.targets %}
+                        {% set tInfo = history.targets[targetRes.targetId]|default(null) %}
+                        <tr id="row-{{ targetRes.targetId }}" class="hover:bg-zinc-800/20 transition duration-300">
+                            <td class="py-3.5 font-semibold text-white">
+                                {{ tInfo.check.name|default(targetRes.targetId) }}
+                                <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.check.config.provider|default('Anycast') }}</div>
+                            </td>
+                            <td class="py-3.5 font-mono text-zinc-300">{{ targetRes.host }}</td>
+                            <td class="py-3.5 font-mono text-white font-bold"><span id="lat-{{ targetRes.targetId }}">{{ targetRes.avgLatencyMs|round(1) }} ms</span></td>
+                            <td class="py-3.5 font-mono text-zinc-400"><span id="jit-{{ targetRes.targetId }}">±{{ targetRes.jitterMs|round(1) }} ms</span></td>
+                            <td class="py-3.5 font-mono"><span id="loss-{{ targetRes.targetId }}" class="{% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">{{ targetRes.packetLossPercent|round(0) }}%</span></td>
+                            <td class="py-3.5">
+                                <div class="w-40 h-8 bg-zinc-950/60 rounded border border-zinc-800/60 p-1 flex items-center justify-center">
+                                    <canvas id="chart-{{ targetRes.targetId }}" width="150" height="28"></canvas>
+                                </div>
+                            </td>
+                            <td id="badge-{{ targetRes.targetId }}" class="py-3.5 text-right">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if targetRes.state.value == 'excellent' or targetRes.state.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                    {{ ('state.' ~ targetRes.state.value)|trans }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TUI Banner -->
+    <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="font-mono text-emerald-400">$</span>
+                    {{ 'tui.heading'|trans }}
+                </h3>
+                <p class="text-xs text-zinc-400 mt-1">{{ 'tui.description'|trans }}</p>
+            </div>
+            <code class="bg-zinc-950 border border-zinc-800 px-3.5 py-2 rounded-xl text-xs text-emerald-400 font-mono">
+                php bin/console uplink:tui
+            </code>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const initialHistoryData = {{ history|json_encode|raw }};
+    const stateLabels = {{ stateTranslations|json_encode|raw }};
+    const uiText = {{ uiTranslations|json_encode|raw }};
+    const chartInstances = {};
+    let eventSource = null;
+    let isManuallyPaused = false;
+    let fallbackTimer = null;
+
+    function initSparklineCharts(historyData) {
+        if (!historyData || !historyData.targets) return;
+
+        Object.entries(historyData.targets).forEach(([targetId, info]) => {
+            const canvas = document.getElementById('chart-' + targetId);
+            if (!canvas) return;
+
+            const latencies = (info.history || []).map(h => h.avg_latency_ms).filter(l => l !== null);
+            const labels = (info.history || []).map((_, i) => i + 1);
+
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 28);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+            chartInstances[targetId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : [1],
+                    datasets: [{
+                        data: latencies.length ? latencies : [0],
+                        borderColor: '#10b981',
+                        borderWidth: 1.5,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 3,
+                        pointHoverBackgroundColor: '#34d399',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            displayColors: false,
+                            callbacks: {
+                                title: () => '',
+                                label: (ctx) => `${ctx.parsed.y.toFixed(1)} ms`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, beginAtZero: false }
+                    }
+                }
+            });
+        });
+    }
+
+    function updateSparklineChart(targetId, historyList) {
+        const chart = chartInstances[targetId];
+        if (!chart || !historyList) return;
+
+        const latencies = historyList.map(h => h.avg_latency_ms).filter(l => l !== null);
+        const labels = historyList.map((_, i) => i + 1);
+
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = latencies;
+        chart.update('none');
+    }
+
+    function updateIfChanged(el, newContent, isHtml = false) {
+        if (!el) return;
+        const current = (isHtml ? el.innerHTML : el.textContent).trim();
+        const incoming = String(newContent).trim();
+
+        if (current !== incoming) {
+            if (isHtml) {
+                el.innerHTML = newContent;
+            } else {
+                el.textContent = newContent;
+            }
+            el.classList.remove('live-updated');
+            void el.offsetWidth;
+            el.classList.add('live-updated');
+        }
+    }
+
+    function connectSSE() {
+        if (isManuallyPaused || document.hidden) return;
+        const dot = document.getElementById('connection-dot');
+        const text = document.getElementById('connection-text');
+
+        try {
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource('/api/v1/uplink/stream?interval=3&packets=2');
+
+            eventSource.addEventListener('open', () => {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                text.textContent = uiText.live_sse || 'LIVE SSE STREAM';
+                text.className = 'text-emerald-400 font-bold';
+            });
+
+            eventSource.addEventListener('update', (event) => {
+                if (isManuallyPaused || document.hidden) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    updateDOM(data);
+                } catch (err) {
+                    console.error('Error parsing SSE payload', err);
+                }
+            });
+
+            eventSource.onerror = () => {
+                if (document.hidden) return;
+                dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                text.textContent = uiText.fallback_polling || 'FALLBACK POLLING';
+                text.className = 'text-amber-400 font-bold';
+                eventSource.close();
+                if (!fallbackTimer && !document.hidden) {
+                    fallbackTimer = setInterval(pollFallback, 3000);
+                }
+            };
+        } catch (e) {
+            console.error('SSE initialization error', e);
+        }
+    }
+
+    function disconnectSSE(reason = null) {
+        const dot = document.getElementById('connection-dot');
+        const text = document.getElementById('connection-text');
+
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        if (fallbackTimer) {
+            clearInterval(fallbackTimer);
+            fallbackTimer = null;
+        }
+
+        dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+        text.textContent = reason || uiText.paused || 'PAUSED';
+        text.className = 'text-zinc-500 font-bold';
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            disconnectSSE(uiText.idle_background || 'IDLE (TAB IN BACKGROUND)');
+        } else {
+            if (!isManuallyPaused) {
+                connectSSE();
+                triggerImmediateProbe();
+            }
+        }
+    });
+
+    async function pollFallback() {
+        if (isManuallyPaused || document.hidden) return;
+        try {
+            const res = await fetch('/api/v1/uplink/history?samples=20');
+            const statusRes = await fetch('/api/v1/uplink');
+            const historyData = await res.json();
+            const statusData = await statusRes.json();
+
+            updateDOM({
+                summary: statusData.data,
+                history: historyData.data,
+                timestamp: new Date().toISOString()
+            });
+        } catch (err) {
+            console.error('Fallback poll error', err);
+        }
+    }
+
+    function updateDOM(payload) {
+        const summary = payload.summary;
+        const history = payload.history;
+        const localizedState = stateLabels[summary.state] || summary.state_label || summary.state;
+
+        const titleStr = (uiText.title_template || 'Uplink {state}').replace('{state}', localizedState);
+        updateIfChanged(document.getElementById('hero-title'), titleStr);
+        
+        const stateBadge = document.getElementById('hero-state-badge');
+        if (stateBadge) {
+            updateIfChanged(stateBadge, localizedState);
+            if (summary.state === 'excellent' || summary.state === 'good') {
+                stateBadge.className = 'px-3 py-0.5 text-xs font-semibold rounded-full uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            } else {
+                stateBadge.className = 'px-3 py-0.5 text-xs font-semibold rounded-full uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            }
+        }
+
+        updateIfChanged(document.getElementById('hero-score'), summary.health_score);
+        
+        const summaryStr = (uiText.summary_template || '{healthy} of {total}')
+            .replace('{healthy}', summary.targets_summary.healthy)
+            .replace('{total}', summary.targets_summary.total);
+        updateIfChanged(document.getElementById('hero-targets-summary'), summaryStr);
+        
+        const time = new Date(summary.evaluated_at);
+        updateIfChanged(document.getElementById('hero-evaluated-time'), time.toLocaleTimeString());
+
+        updateIfChanged(document.getElementById('vital-latency'), summary.metrics.avg_latency_ms + ' ms');
+        updateIfChanged(document.getElementById('vital-loss'), summary.metrics.avg_packet_loss_percent + '%');
+        updateIfChanged(document.getElementById('vital-jitter'), '±' + summary.metrics.avg_jitter_ms + ' ms');
+
+        if (summary.targets && summary.targets.length > 0) {
+            summary.targets.forEach(t => {
+                const latEl = document.getElementById('lat-' + t.target_id);
+                const jitEl = document.getElementById('jit-' + t.target_id);
+                const lossEl = document.getElementById('loss-' + t.target_id);
+                const badgeEl = document.getElementById('badge-' + t.target_id);
+
+                if (latEl) updateIfChanged(latEl, t.avg_latency_ms !== null ? t.avg_latency_ms + ' ms' : 'DOWN');
+                if (jitEl) updateIfChanged(jitEl, t.jitter_ms !== null ? '±' + t.jitter_ms + ' ms' : '-');
+                if (lossEl) {
+                    updateIfChanged(lossEl, t.packet_loss_percent + '%');
+                    lossEl.className = 'transition ' + (t.packet_loss_percent === 0 ? 'text-emerald-400' : 'text-rose-400');
+                }
+
+                if (history && history.targets && history.targets[t.target_id]) {
+                    updateSparklineChart(t.target_id, history.targets[t.target_id].history);
+                }
+
+                if (badgeEl) {
+                    const isGood = t.state === 'excellent' || t.state === 'good';
+                    const badgeStateText = stateLabels[t.state] || t.state;
+                    const newBadgeHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isGood ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'}">${badgeStateText}</span>`;
+                    updateIfChanged(badgeEl, newBadgeHtml, true);
+                }
+            });
+        }
+    }
+
+    function toggleLiveStream() {
+        const btn = document.getElementById('toggle-live-btn');
+        if (isManuallyPaused) {
+            isManuallyPaused = false;
+            btn.textContent = uiText.pause || 'Pause';
+            connectSSE();
+        } else {
+            isManuallyPaused = true;
+            btn.textContent = uiText.resume || 'Resume';
+            disconnectSSE(uiText.paused || 'PAUSED');
+        }
+    }
+
+    async function triggerImmediateProbe() {
+        const btn = document.getElementById('probe-btn');
+        const btnText = document.getElementById('probe-btn-text');
+        btn.disabled = true;
+        btnText.innerHTML = uiText.pinging || 'Pinging...';
+        try {
+            const res = await fetch('/api/v1/uplink/ping', { method: 'POST' });
+            const json = await res.json();
+            if (json.data) {
+                const histRes = await fetch('/api/v1/uplink/history?samples=24');
+                const histJson = await histRes.json();
+                updateDOM({ summary: json.data, history: histJson.data, timestamp: new Date().toISOString() });
+            }
+        } catch (e) {
+            alert('Probe error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btnText.innerHTML = uiText.ping_now || 'Ping Now';
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initSparklineCharts(initialHistoryData);
+        if (!document.hidden) connectSSE();
+    });
+</script>
+{% endblock %}

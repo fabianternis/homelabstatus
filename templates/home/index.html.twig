@@ -70,7 +70,7 @@
                 </div>
                 <div class="p-2.5 bg-zinc-950/60 rounded-xl border border-zinc-800/60">
                     <div class="text-[10px] text-zinc-500 uppercase font-mono">Jitter</div>
-                    <div id="vital-jitter" class="font-bold text-white font-mono mt-0.5">±{{ uplinkStatus.avgJitterMs|round(1) }} ms</div>
+                    <div id="vital-jitter" class="font-bold text-white font-mono mt-0.5">{{ uplinkStatus.avgJitterMs|round(1) }} ms</div>
                 </div>
             </div>
 
@@ -294,7 +294,7 @@
         updateIfChanged(document.getElementById('hero-score'), summary.health_score);
         updateIfChanged(document.getElementById('vital-latency'), summary.metrics.avg_latency_ms + ' ms');
         updateIfChanged(document.getElementById('vital-loss'), summary.metrics.avg_packet_loss_percent + '%');
-        updateIfChanged(document.getElementById('vital-jitter'), '±' + summary.metrics.avg_jitter_ms + ' ms');
+        updateIfChanged(document.getElementById('vital-jitter'), summary.metrics.avg_jitter_ms + ' ms');
 
         const time = new Date(summary.evaluated_at);
         updateIfChanged(document.getElementById('hero-evaluated-time'), time.toLocaleTimeString());

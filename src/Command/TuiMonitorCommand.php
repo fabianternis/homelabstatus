@@ -145,7 +145,7 @@ class TuiMonitorCommand extends Command
             $minMaxStr = ($targetRes->minLatencyMs !== null && $targetRes->maxLatencyMs !== null)
                 ? sprintf('%3.0f/%-3.0f', $targetRes->minLatencyMs, $targetRes->maxLatencyMs)
                 : '   -   ';
-            $jitStr = $targetRes->jitterMs !== null ? sprintf('±%4.1f ms', $targetRes->jitterMs) : '   -    ';
+            $jitStr = $targetRes->jitterMs !== null ? sprintf('%5.1f ms', $targetRes->jitterMs) : '   -    ';
 
             $name = mb_strimwidth($tData['target']['name'] ?? $targetRes->targetId, 0, 24, '..');
 

@@ -54,7 +54,7 @@
                                 {{ exec.resultData.packet_loss_percent|default(0)|round(0) }}%
                             </td>
                             <td class="py-3 text-zinc-400">
-                                {{ exec.resultData.jitter_ms is defined and exec.resultData.jitter_ms is not null ? ('±' ~ exec.resultData.jitter_ms|round(1) ~ ' ms') : '-' }}
+                                {{ exec.resultData.jitter_ms is defined and exec.resultData.jitter_ms is not null ? (exec.resultData.jitter_ms|round(1) ~ ' ms') : '-' }}
                             </td>
                             <td class="py-3 text-zinc-400">{{ exec.durationMs|round(1) }} ms</td>
                             <td class="py-3 text-right text-zinc-500">{{ exec.executedAt }}</td>

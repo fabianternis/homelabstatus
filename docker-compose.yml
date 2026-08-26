@@ -1,0 +1,17 @@
+services:
+  homelabstatus:
+    build: .
+    container_name: homelabstatus
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=prod
+      - APP_DEBUG=0
+      - APP_NAME="Homelab Status"
+      - ADMIN_PASSWORD=admin_change_me
+      - API_KEY=
+      - ENABLE_HOST_METRICS=true
+    volumes:
+      - ./var/data:/app/var/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro

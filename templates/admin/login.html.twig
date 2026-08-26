@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Admin Login — {{ appName }}{% endblock %}
+
+{% block body %}
+<div class="max-w-md mx-auto my-12 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+    <div class="text-center mb-8">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto mb-4">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+        </div>
+        <h1 class="text-xl font-bold text-white tracking-tight">Admin Authentication</h1>
+        <p class="text-xs text-zinc-400 mt-1">Enter your administrative password to manage monitors.</p>
+    </div>
+
+    {% if error %}
+        <div class="mb-6 p-3.5 bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold rounded-xl text-center">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST" action="{{ path('admin_login') }}" class="space-y-4">
+        <div>
+            <label for="password" class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Password</label>
+            <input type="password" name="password" id="password" required autofocus class="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition" placeholder="Enter password...">
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow-lg shadow-emerald-950">
+            Sign In to Console
+        </button>
+    </form>
+</div>
+{% endblock %}

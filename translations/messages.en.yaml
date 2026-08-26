@@ -1,0 +1,47 @@
+app:
+  title: "Homelab Uplink Status — Live API & Monitor"
+  name: "Homelab"
+  uplink: "Uplink"
+  tagline: "API-First"
+  connecting: "CONNECTING..."
+  live_sse: "LIVE SSE STREAM"
+  fallback_polling: "FALLBACK POLLING"
+  paused: "PAUSED"
+  idle_background: "IDLE (TAB IN BACKGROUND)"
+  pause: "Pause"
+  resume: "Resume"
+  json_api: "JSON API ↗"
+  ip_label: "IP:"
+  hover_ip: "Hover to reveal IP address"
+
+status:
+  title: "Uplink %state%"
+  health_score: "Health Score"
+  ping_now: "Ping Now"
+  pinging: "Pinging..."
+  probed_summary: "Probed %healthy% of %total% active uplink checks"
+  evaluated_at: "Evaluated %time%"
+  avg_latency: "Average RTT Latency"
+  avg_loss: "Average Packet Loss"
+  avg_jitter: "Average Jitter"
+
+table:
+  heading: "Database Uplink Checks"
+  check_name: "Check / Resolver"
+  target_host: "Target Host"
+  latency: "Latency"
+  jitter: "Jitter"
+  loss: "Loss"
+  sparkline: "Latency Sparkline"
+  status: "Status"
+
+tui:
+  heading: "Terminal User Interface (TUI)"
+  description: "Run an interactive live updating terminal dashboard on your server or SSH session."
+
+state:
+  excellent: "Excellent"
+  good: "Good"
+  degraded: "Degraded"
+  offline: "Offline"
+  unknown: "Unknown"

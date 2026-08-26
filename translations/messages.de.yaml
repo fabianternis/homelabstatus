@@ -1,0 +1,47 @@
+app:
+  title: "Homelab Uplink Status — Live API & Monitor"
+  name: "Homelab"
+  uplink: "Uplink"
+  tagline: "API-First"
+  connecting: "VERBINDE..."
+  live_sse: "LIVE SSE STREAM"
+  fallback_polling: "FALLBACK POLLING"
+  paused: "PAUSIERT"
+  idle_background: "INAKTIV (TAB IM HINTERGRUND)"
+  pause: "Pausieren"
+  resume: "Fortsetzen"
+  json_api: "JSON API ↗"
+  ip_label: "IP:"
+  hover_ip: "Zeiger darauf halten, um IP anzuzeigen"
+
+status:
+  title: "Uplink %state%"
+  health_score: "Gesundheitswert"
+  ping_now: "Jetzt prüfen"
+  pinging: "Prüfe..."
+  probed_summary: "%healthy% von %total% aktiven Uplink-Prüfungen erreicht"
+  evaluated_at: "Ausgewertet um %time%"
+  avg_latency: "Durchschnittliche Latenz"
+  avg_loss: "Durchschnittlicher Paketverlust"
+  avg_jitter: "Durchschnittlicher Jitter"
+
+table:
+  heading: "Database Uplink Checks"
+  check_name: "Prüfung / Resolver"
+  target_host: "Ziel-Host"
+  latency: "Latenz"
+  jitter: "Jitter"
+  loss: "Verlust"
+  sparkline: "Latenz-Verlauf"
+  status: "Status"
+
+tui:
+  heading: "Terminal Benutzeroberfläche (TUI)"
+  description: "Interaktives Live-Terminal-Dashboard auf Ihrem Server oder Ihrer SSH-Sitzung ausführen."
+
+state:
+  excellent: "Ausgezeichnet"
+  good: "Gut"
+  degraded: "Beeinträchtigt"
+  offline: "Offline"
+  unknown: "Unbekannt"

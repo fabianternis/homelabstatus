@@ -4,8 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Homelab Uplink Status — Live API & Monitor</title>
+    
+    <!-- PWA & Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Uplink">
+
+    <!-- Tailwind & Chart.js -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -134,13 +145,13 @@
             </div>
         </div>
 
-        <!-- Target Probes Table with Sparklines -->
+        <!-- Target Probes Table with Chart.js Canvas Sparklines -->
         <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-bold text-white">External Target Probes & Historical Sparklines</h2>
+                <h2 class="text-base font-bold text-white">External Target Probes & Real-Time Latency Sparklines</h2>
                 <div class="flex items-center gap-2 text-xs font-mono text-zinc-500">
                     <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
-                    <span>Live SSE Stream</span>
+                    <span>Chart.js Sparklines Active</span>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -152,7 +163,7 @@
                             <th class="pb-3">Latency</th>
                             <th class="pb-3">Jitter</th>
                             <th class="pb-3">Loss</th>
-                            <th class="pb-3">Latency Sparkline</th>
+                            <th class="pb-3 w-44">Latency Sparkline</th>
                             <th class="pb-3 text-right">Status</th>
                         </tr>
                     </thead>
@@ -168,7 +179,11 @@
                                 <td class="py-3 font-mono text-white font-bold"><span id="lat-{{ targetRes.targetId }}">{{ targetRes.avgLatencyMs|round(1) }} ms</span></td>
                                 <td class="py-3 font-mono text-zinc-400"><span id="jit-{{ targetRes.targetId }}">±{{ targetRes.jitterMs|round(1) }} ms</span></td>
                                 <td class="py-3 font-mono"><span id="loss-{{ targetRes.targetId }}" class="{% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">{{ targetRes.packetLossPercent|round(0) }}%</span></td>
-                                <td class="py-3 font-mono text-emerald-400 text-sm tracking-widest"><span id="spark-{{ targetRes.targetId }}">{{ tInfo.sparkline|default('────────') }}</span></td>
+                                <td class="py-3">
+                                    <div class="w-40 h-8 bg-zinc-950/60 rounded border border-zinc-800/60 p-1 flex items-center justify-center">
+                                        <canvas id="chart-{{ targetRes.targetId }}" width="150" height="28"></canvas>
+                                    </div>
+                                </td>
                                 <td id="badge-{{ targetRes.targetId }}" class="py-3 text-right">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if targetRes.state.value == 'excellent' or targetRes.state.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
                                         {{ targetRes.state.value }}
@@ -198,13 +213,100 @@
         </div>
     </main>
 
-    <!-- Client-side SSE Live Update Engine with Granular Flashing -->
+    <!-- Initial Data Payload for Chart.js Bootstrapping -->
+    <script>
+        const initialHistoryData = {{ history|json_encode|raw }};
+        const chartInstances = {};
+
+        function initSparklineCharts(historyData) {
+            if (!historyData || !historyData.targets) return;
+
+            Object.entries(historyData.targets).forEach(([targetId, info]) => {
+                const canvas = document.getElementById('chart-' + targetId);
+                if (!canvas) return;
+
+                const latencies = (info.history || [])
+                    .map(h => h.avg_latency_ms)
+                    .filter(l => l !== null);
+
+                const labels = (info.history || []).map((_, i) => i + 1);
+
+                const ctx = canvas.getContext('2d');
+                const gradient = ctx.createLinearGradient(0, 0, 0, 28);
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+                chartInstances[targetId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels.length ? labels : [1],
+                        datasets: [{
+                            data: latencies.length ? latencies : [0],
+                            borderColor: '#10b981',
+                            borderWidth: 1.5,
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            pointHoverBackgroundColor: '#34d399',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true,
+                                mode: 'index',
+                                intersect: false,
+                                displayColors: false,
+                                callbacks: {
+                                    title: () => '',
+                                    label: (ctx) => `${ctx.parsed.y.toFixed(1)} ms`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false, beginAtZero: false }
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateSparklineChart(targetId, historyList) {
+            const chart = chartInstances[targetId];
+            if (!chart || !historyList) return;
+
+            const latencies = historyList.map(h => h.avg_latency_ms).filter(l => l !== null);
+            const labels = historyList.map((_, i) => i + 1);
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = latencies;
+            chart.update('none'); // Update without heavy animations
+        }
+    </script>
+
+    <!-- Client-side SSE Live Update Engine & Service Worker Registration -->
     <script>
         let eventSource = null;
         let isManuallyPaused = false;
         let fallbackTimer = null;
 
-        // Helper: Updates an element only if its content changed, and flashes only that specific element
+        // Register Service Worker for PWA & Offline Support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Uplink ServiceWorker registered:', reg.scope))
+                    .catch(err => console.warn('ServiceWorker registration skipped:', err));
+            });
+        }
+
+        // Helper: Updates element only if changed, flashing ONLY the changed element
         function updateIfChanged(el, newContent, isHtml = false) {
             if (!el) return;
             const current = (isHtml ? el.innerHTML : el.textContent).trim();
@@ -351,7 +453,6 @@
                     const latEl = document.getElementById('lat-' + t.target_id);
                     const jitEl = document.getElementById('jit-' + t.target_id);
                     const lossEl = document.getElementById('loss-' + t.target_id);
-                    const sparkEl = document.getElementById('spark-' + t.target_id);
                     const badgeEl = document.getElementById('badge-' + t.target_id);
 
                     if (latEl) {
@@ -370,8 +471,8 @@
                         lossEl.className = 'transition ' + (t.packet_loss_percent === 0 ? 'text-emerald-400' : 'text-rose-400');
                     }
 
-                    if (history && history.targets && history.targets[t.target_id] && sparkEl) {
-                        updateIfChanged(sparkEl, history.targets[t.target_id].sparkline);
+                    if (history && history.targets && history.targets[t.target_id]) {
+                        updateSparklineChart(t.target_id, history.targets[t.target_id].history);
                     }
 
                     if (badgeEl) {
@@ -421,8 +522,9 @@
             }
         }
 
-        // Start SSE on initial page load if visible
+        // Initialize Charts & Start SSE on initial page load
         window.addEventListener('DOMContentLoaded', () => {
+            initSparklineCharts(initialHistoryData);
             if (!document.hidden) {
                 connectSSE();
             }

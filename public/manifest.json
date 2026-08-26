@@ -1,0 +1,17 @@
+{
+  "name": "Homelab Uplink Monitor",
+  "short_name": "Uplink",
+  "description": "Real-time API-first uplink health and network latency monitor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

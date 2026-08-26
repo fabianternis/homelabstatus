@@ -14,4 +14,7 @@ services:
             - '../src/Entity/'
             - '../src/Model/'
             - '../src/Enum/'
+            - '../src/DTO/'
             - '../src/Kernel.php'
+
+    App\Service\Ping\PingRunnerInterface: '@App\Service\Ping\SystemPingRunner'

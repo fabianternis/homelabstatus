@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homelab Uplink Status API & Monitor</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+    <!-- Header -->
+    <header class="border-b border-zinc-800/80 bg-zinc-900/60 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-bold text-lg text-white tracking-tight">Homelab <span class="text-emerald-400">Uplink</span></span>
+                    <span class="text-[10px] uppercase font-mono px-2 py-0.5 ml-2 bg-zinc-800 text-zinc-400 rounded-md border border-zinc-700">API-First</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs font-mono">
+                <a href="/api/v1/uplink" target="_blank" class="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition">
+                    JSON API Endpoint ↗
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <!-- Live Uplink Summary Card -->
+        <div class="rounded-2xl p-6 sm:p-8 border {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-gradient-to-br from-emerald-950/40 via-zinc-900/50 to-zinc-900 border-emerald-500/30{% elseif status.state.value == 'degraded' %}bg-gradient-to-br from-amber-950/40 via-zinc-900/50 to-zinc-900 border-amber-500/30{% else %}bg-gradient-to-br from-rose-950/40 via-zinc-900/50 to-zinc-900 border-rose-500/30{% endif %}">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center border shadow-lg {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border-emerald-500/40{% elseif status.state.value == 'degraded' %}bg-amber-500/20 text-amber-400 border-amber-500/40{% else %}bg-rose-500/20 text-rose-400 border-rose-500/40{% endif %}">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Uplink {{ status.state.label() }}</h1>
+                            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase {% if status.state.value == 'excellent' or status.state.value == 'good' %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/20 text-amber-400 border border-amber-500/30{% endif %}">
+                                {{ status.state.value }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-zinc-400 mt-1">
+                            Probed {{ status.healthyTargetsCount }} of {{ status.activeTargetsCount }} external upstream target resolvers • Evaluated <span class="font-mono text-zinc-300">{{ status.evaluatedAt|date('H:i:s T') }}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="bg-zinc-950/60 border border-zinc-800 px-4 py-3 rounded-xl text-center">
+                        <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">Health Score</div>
+                        <div class="text-2xl font-mono font-bold text-emerald-400">{{ status.healthScore }}<span class="text-xs text-zinc-500">/100</span></div>
+                    </div>
+                    <button onclick="triggerProbe()" id="probe-btn" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Ping Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vitals Row -->
+            <div class="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-zinc-800/60">
+                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
+                    <span class="text-[11px] text-zinc-400">Average RTT Latency</span>
+                    <div class="text-lg font-mono font-bold text-white mt-0.5">{{ status.avgLatencyMs|round(1) }} ms</div>
+                </div>
+                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
+                    <span class="text-[11px] text-zinc-400">Average Packet Loss</span>
+                    <div class="text-lg font-mono font-bold {% if status.avgPacketLossPercent == 0 %}text-emerald-400{% else %}text-amber-400{% endif %} mt-0.5">
+                        {{ status.avgPacketLossPercent|round(1) }}%
+                    </div>
+                </div>
+                <div class="bg-zinc-950/40 p-3 rounded-xl border border-zinc-800/60 text-center">
+                    <span class="text-[11px] text-zinc-400">Average Jitter</span>
+                    <div class="text-lg font-mono font-bold text-white mt-0.5">±{{ status.avgJitterMs|round(2) }} ms</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Target Probes Table with Sparklines -->
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+            <h2 class="text-base font-bold text-white mb-4">External Target Probes & Historical Sparklines</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-zinc-800 text-zinc-500 font-mono">
+                            <th class="pb-3">Target Node</th>
+                            <th class="pb-3">Host IP</th>
+                            <th class="pb-3">Latency</th>
+                            <th class="pb-3">Jitter</th>
+                            <th class="pb-3">Loss</th>
+                            <th class="pb-3">Latency Sparkline</th>
+                            <th class="pb-3 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-800/50">
+                        {% for targetRes in status.targets %}
+                            {% set tInfo = history.targets[targetRes.targetId]|default(null) %}
+                            <tr class="hover:bg-zinc-800/20">
+                                <td class="py-3 font-semibold text-white">
+                                    {{ tInfo.target.name|default(targetRes.targetId) }}
+                                    <div class="text-[10px] text-zinc-500 font-normal">{{ tInfo.target.provider|default('Anycast') }}</div>
+                                </td>
+                                <td class="py-3 font-mono text-zinc-300">{{ targetRes.host }}</td>
+                                <td class="py-3 font-mono text-white font-bold">{{ targetRes.avgLatencyMs|round(1) }} ms</td>
+                                <td class="py-3 font-mono text-zinc-400">±{{ targetRes.jitterMs|round(1) }} ms</td>
+                                <td class="py-3 font-mono {% if targetRes.packetLossPercent == 0 %}text-emerald-400{% else %}text-rose-400{% endif %}">
+                                    {{ targetRes.packetLossPercent|round(0) }}%
+                                </td>
+                                <td class="py-3 font-mono text-emerald-400 text-sm tracking-widest">
+                                    {{ tInfo.sparkline|default('────────') }}
+                                </td>
+                                <td class="py-3 text-right">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {% if targetRes.state.value == 'excellent' or targetRes.state.value == 'good' %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-amber-500/15 text-amber-400 border border-amber-500/30{% endif %}">
+                                        {{ targetRes.state.value }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Terminal User Interface (TUI) Notice -->
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="font-mono text-emerald-400">$</span>
+                        Terminal User Interface (TUI)
+                    </h3>
+                    <p class="text-xs text-zinc-400 mt-1">Run an interactive live updating terminal dashboard on your server or SSH session.</p>
+                </div>
+                <code class="bg-zinc-950 border border-zinc-800 px-3.5 py-2 rounded-xl text-xs text-emerald-400 font-mono">
+                    php bin/console uplink:tui
+                </code>
+            </div>
+        </div>
+
+        <!-- API Reference Grid -->
+        <div class="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6">
+            <h2 class="text-base font-bold text-white mb-4">API-First Endpoints</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <a href="/api/v1/uplink" target="_blank" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl hover:border-emerald-500/40 transition block">
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-bold rounded">GET</span>
+                        <span class="text-white font-semibold">/api/v1/uplink</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-2">Overall uplink state, composite quality score (0-100), and active probe metrics.</p>
+                </a>
+
+                <a href="/api/v1/uplink/targets" target="_blank" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl hover:border-emerald-500/40 transition block">
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-bold rounded">GET</span>
+                        <span class="text-white font-semibold">/api/v1/uplink/targets</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-2">List of all monitored target resolvers with their latest ping metrics.</p>
+                </a>
+
+                <a href="/api/v1/uplink/history" target="_blank" class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl hover:border-emerald-500/40 transition block">
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-bold rounded">GET</span>
+                        <span class="text-white font-semibold">/api/v1/uplink/history</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-2">Time-series history array and generated Unicode sparklines for charts & TUI.</p>
+                </a>
+
+                <div class="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-xl block">
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 font-bold rounded">POST</span>
+                        <span class="text-white font-semibold">/api/v1/uplink/ping</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-2">Trigger immediate multi-target ICMP probe check run on demand.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function triggerProbe() {
+            const btn = document.getElementById('probe-btn');
+            btn.disabled = true;
+            btn.innerHTML = 'Pinging...';
+            try {
+                await fetch('/api/v1/uplink/ping', { method: 'POST' });
+                window.location.reload();
+            } catch (e) {
+                alert('Ping failed: ' + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Ping Now';
+            }
+        }
+    </script>
+</body>
+</html>

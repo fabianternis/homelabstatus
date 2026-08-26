@@ -64,10 +64,20 @@
             </div>
 
             <div class="flex items-center gap-3 text-xs font-mono">
-                <!-- Language Switcher -->
-                <div class="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-[11px] font-bold">
-                    <a href="?lang=en" class="px-2 py-1 rounded {% if locale == 'en' %}bg-zinc-800 text-emerald-400{% else %}text-zinc-500 hover:text-zinc-300{% endif %}">EN</a>
-                    <a href="?lang=de" class="px-2 py-1 rounded {% if locale == 'de' %}bg-zinc-800 text-emerald-400{% else %}text-zinc-500 hover:text-zinc-300{% endif %}">DE</a>
+                <!-- Dynamic Language Switcher Dropdown -->
+                <div class="relative inline-block">
+                    <select onchange="window.location.href='?lang=' + this.value" class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none transition">
+                        {% for code, loc in availableLocales %}
+                            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>
+                                {{ loc.native_name }} ({{ code|upper }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-zinc-500">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
                 </div>
 
                 <!-- IP Address (Blurred by default, hover to reveal) -->

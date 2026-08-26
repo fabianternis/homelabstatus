@@ -1,0 +1,47 @@
+app:
+  title: "Statut Uplink Homelab — API et surveillance en direct"
+  name: "Homelab"
+  uplink: "Uplink"
+  tagline: "API-First"
+  connecting: "CONNEXION..."
+  live_sse: "FLUX SSE EN DIRECT"
+  fallback_polling: "SONDAGE DE SECOURS"
+  paused: "EN PAUSE"
+  idle_background: "INACTIF (ONGLET EN ARRIÈRE-PLAN)"
+  pause: "Pause"
+  resume: "Reprendre"
+  json_api: "API JSON ↗"
+  ip_label: "IP:"
+  hover_ip: "Survoler pour afficher l'adresse IP"
+
+status:
+  title: "Uplink %state%"
+  health_score: "Score de santé"
+  ping_now: "Tester maintenant"
+  pinging: "Test en cours..."
+  probed_summary: "%healthy% sur %total% vérifications actives réussies"
+  evaluated_at: "Évalué à %time%"
+  avg_latency: "Latence RTT moyenne"
+  avg_loss: "Perte de paquets moyenne"
+  avg_jitter: "Gigue moyenne"
+
+table:
+  heading: "Database Uplink Checks"
+  check_name: "Vérification / Résolveur"
+  target_host: "Hôte cible"
+  latency: "Latence"
+  jitter: "Gigue"
+  loss: "Perte"
+  sparkline: "Graphique de latence"
+  status: "Statut"
+
+tui:
+  heading: "Interface utilisateur du terminal (TUI)"
+  description: "Exécutez un tableau de bord en direct sur votre serveur ou session SSH."
+
+state:
+  excellent: "Excellent"
+  good: "Bon"
+  degraded: "Dégradé"
+  offline: "Hors ligne"
+  unknown: "Inconnu"
